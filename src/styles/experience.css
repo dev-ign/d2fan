@@ -1223,6 +1223,10 @@ html[data-experience="home"] {
   }
   .wordmark {
     font-size: 23px;
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .site-header .player-popover {
     position: fixed;

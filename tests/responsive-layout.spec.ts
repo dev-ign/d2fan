@@ -6,6 +6,40 @@ const widths = [
   1101, 1440,
 ];
 
+test("mobile floating shell accommodates a wide system-font fallback", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.locator(".wordmark").waitFor();
+  // Linux has no Impact; force its wider fallback even on Macs that have it.
+  await page.addStyleTag({
+    content: ".wordmark { font-family: Arial, sans-serif !important; }",
+  });
+  for (const width of [320, 375, 390, 430]) {
+    await page.setViewportSize({ width, height: 568 });
+    await expectResponsiveLayout(page);
+    const fits = await page.evaluate(() => {
+      const shell = document
+        .querySelector(".header-inner")!
+        .getBoundingClientRect();
+      const brand = document
+        .querySelector(".wordmark")!
+        .getBoundingClientRect();
+      const actions = document
+        .querySelector(".header-actions")!
+        .getBoundingClientRect();
+      return (
+        brand.left >= shell.left &&
+        brand.right <= actions.left &&
+        brand.bottom <= shell.bottom &&
+        actions.right <= shell.right
+      );
+    });
+    expect(fits, `header shell at ${width}px`).toBe(true);
+  }
+});
+
 for (const reducedMotion of ["reduce", "no-preference"] as const) {
   test(`responsive bounds before and after delayed fonts (${reducedMotion})`, async ({
     page,

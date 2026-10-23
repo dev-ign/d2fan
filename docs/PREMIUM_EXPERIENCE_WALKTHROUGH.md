@@ -35,7 +35,7 @@ The social links are inside the hero footer. At both priority viewports the biog
 
 ### 2. Move through the floating navigation
 
-At the top, the homepage navigation has no visible shell background. After crossing 40px of scroll, the same-size shell receives a dark translucent surface, a thin border, restrained 12px blur and a soft shadow. It remains inset from the viewport edges. The fallback without backdrop filtering is a more opaque dark surface.
+At the top, the homepage navigation has no visible shell background. After crossing 40px of scroll, the same-size shell receives a dark translucent surface, a thin border, restrained 12px blur and a soft shadow. It remains inset from the viewport edges. The fallback without backdrop filtering is a more opaque dark surface. At 320px, a wide system-font brand can wrap inside its available space until the display font loads; the 44px menu/audio controls remain inside the shell. A forced Arial regression covers this Linux fallback on every platform.
 
 There is no height animation or layout shift. The scroll subscription notifies React only when crossing the threshold; it is passive and cleans up on unmount. At tablet/mobile widths, the menu replaces the inline links and support action, while the homepage audio control stays available.
 
@@ -147,7 +147,7 @@ npm run test:e2e -- --workers=2
 VISUAL_QA_URL=http://127.0.0.1:4174 npm run qa:visual
 ```
 
-All pass. Unit/component tests: **15 across five files**. Edge checks: **11 entrypoints type-check and five handler tests pass**. Embedded PostgreSQL checks pass, including fan deduplication, consent confirmation/revocation, transaction/replay behavior and negative access cases. Browser suite: **32 tests pass**, including the existing 320px and delayed-font overflow checks. No assertions are skipped or made unconditional.
+All pass. Unit/component tests: **15 across five files**. Edge checks: **11 entrypoints type-check and five handler tests pass**. Embedded PostgreSQL checks pass, including fan deduplication, consent confirmation/revocation, transaction/replay behavior and negative access cases. Browser suite: **33 tests pass**, including the existing 320px and delayed-font overflow checks. No assertions are skipped or made unconditional.
 
 The new browser coverage includes the priority hero sizes, desktop scene composition, hidden release player chrome with preserved playback, menu focus trapping/restoration, release capture validation/retry, first/last attribution, EN/ES and explicit consent, signed rewards, small/landscape reflow and snap/footer accessibility. Stay Close anchor tests now check the visible heading against the floating header and the correctly aligned scene; they no longer mistake the scene's background boundary for content clearance.
 
@@ -169,7 +169,7 @@ Paired production mobile Lighthouse samples use the same local settings:
 
 An earlier after-run scored 95 with 2.88s LCP; both reports are retained to make run-to-run variation visible. These are simulated local samples, not field Core Web Vitals or proof that one individual change caused the gain. LCP remains above 2.5s. Existing cover assets and portrait are reused; there are no new bitmap bytes or dependencies. Two existing critical WOFF2 fonts are preloaded early, with Vite resolving them to fingerprinted production URLs. The hero image retains high fetch priority and explicit intrinsic dimensions.
 
-Production JavaScript is 436.89KB / 148.88KB gzip, versus 432.36KB / 147.32KB gzip before. CSS is 41.21KB / 9.43KB gzip, versus 35.63KB / 8.56KB gzip. The refinement adds about 2.4KB combined gzip CSS/JS, plus about 0.1KB gzip HTML. Background image decoding/cache and the audio engine are unchanged.
+Production JavaScript is 436.89KB / 148.88KB gzip, versus 432.36KB / 147.32KB gzip before. CSS is 41.28KB / 9.45KB gzip, versus 35.63KB / 8.56KB gzip. The refinement adds about 2.5KB combined gzip CSS/JS, plus about 0.1KB gzip HTML. Background image decoding/cache and the audio engine are unchanged.
 
 ## Platforms and publishing handoff
 
