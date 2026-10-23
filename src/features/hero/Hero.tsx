@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ellipsis } from "lucide-react";
 import type { Artist, MusicRelease } from "../../domain/types";
 import { Dialog } from "../../components/Dialog";
 
@@ -21,35 +21,36 @@ export function Hero({
           src={artist.heroImage}
           alt="Jona Ferreira adjusting his sunglasses"
           fetchPriority="high"
+          width="1024"
+          height="1536"
         />
-        <div className="hero-fade" />
+        <div className="hero-fade" aria-hidden="true" />
         <div className="hero-content">
           <h1 id="hero-title">
             JONA FERREIRA<span>MUSIC</span>
           </h1>
           <div className="hero-bio">
             <p>{artist.biography.short}</p>
-            <p className="hero-bio-secondary">
-              Moving between reggaeton, dancehall, bachata, melodic urbano and
-              darker Latin sounds.
-            </p>
           </div>
           <button
-            className="text-action hero-read"
+            className="hero-read icon-button"
             type="button"
+            aria-label="Read artist biography"
+            aria-haspopup="dialog"
+            title="Read artist biography"
             onClick={() => setBioOpen(true)}
           >
-            READ MORE
+            <Ellipsis size={22} aria-hidden="true" />
           </button>
         </div>
         <Link
           className="featured-card"
           to={`/music/${featured.slug}`}
-          aria-label={`NEW SINGLE · OUT NOW ${featured.title}`}
+          aria-label={`Latest release: ${featured.title}`}
         >
           <img src={featured.coverArt} alt="" width="64" height="64" />
           <span>
-            <small>NEW SINGLE · OUT NOW</small>
+            <small>LATEST RELEASE</small>
             <strong>{featured.title}</strong>
           </span>
           <img
@@ -60,6 +61,7 @@ export function Hero({
             height="16"
           />
         </Link>
+        <SocialStrip />
       </section>
       {bioOpen && (
         <Dialog

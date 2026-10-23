@@ -32,7 +32,11 @@ export function attribution() {
     };
   if (Object.keys(current).length) {
     if (!Object.keys(memory.first).length) memory.first = current;
-    memory.last = current;
+    // Reading the same release after its query was consumed must not erase
+    // that visit's campaign. A new explicit campaign still replaces last touch.
+    memory.last = Object.keys(current).some((field) => field !== "release")
+      ? current
+      : { ...memory.last, ...current };
   }
   try {
     localStorage.setItem(key, JSON.stringify(memory));

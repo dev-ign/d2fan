@@ -23,4 +23,5 @@ jobs:
           name: phase-1-browser-evidence
           path: |
             artifacts/qa-phase1
+            artifacts/qa-premium
             test-results

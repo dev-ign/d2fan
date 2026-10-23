@@ -20,7 +20,7 @@ test("biography, carousel, release route, and shared audio", async ({
   page,
 }) => {
   await page.goto("/");
-  const readMore = page.getByRole("button", { name: "READ MORE" });
+  const readMore = page.getByRole("button", { name: "Read artist biography" });
   await readMore.click();
   await expect(
     page.getByRole("dialog", { name: "About Jona Ferreira" }),

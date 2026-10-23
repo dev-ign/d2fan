@@ -7,13 +7,7 @@ import { Waveform } from "../../components/Waveform";
 import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
 import { resolveReleaseTheme } from "../../domain/releaseTheme";
 import { analytics } from "../../services/analytics";
-
-const platformNames: Record<keyof MusicRelease["streamingLinks"], string> = {
-  spotify: "Spotify",
-  appleMusic: "Apple Music",
-  youtube: "YouTube Music",
-  amazonMusic: "Amazon Music",
-};
+import { platformNames } from "../../config/streaming";
 
 export function MusicSection({ releases }: { releases: MusicRelease[] }) {
   const [index, setIndex] = useState(0);
@@ -211,7 +205,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
             </button>
           </div>
         </div>
-        <div className="music-controls">
+        <div className="music-controls reveal">
           <span>{Math.min(Math.floor(index / 2) + 1, 3)} / 3</span>
           <button
             className="circle-arrow"
@@ -231,7 +225,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
           </button>
         </div>
         <div
-          className="release-tabs"
+          className="release-tabs reveal"
           role="group"
           aria-label="Choose a release"
         >
