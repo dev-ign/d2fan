@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* Detect utilities in application source, not generated reports or documentation. */
+@import "tailwindcss" source("../");
 
 * {
   box-sizing: border-box;

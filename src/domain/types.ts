@@ -7,13 +7,21 @@ export interface Artist {
   featuredReleaseId: string;
 }
 
+export interface ReleaseTheme {
+  backgroundImage?: string;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  backgroundPosition?: string;
+}
+
 export interface MusicRelease {
   id: string;
   artistId: string;
   slug: string;
   title: string;
   releaseDate: string;
-  artworkUrl: string;
+  coverArt: string;
+  theme?: ReleaseTheme;
   previewUrl?: string;
   featured: boolean;
   streamingLinks: Partial<

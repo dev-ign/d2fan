@@ -1,0 +1,55 @@
+/* Themes are local to these two surfaces; no global palette is changed. */
+.release-theme-host {
+  position: relative;
+  isolation: isolate;
+  background: var(--ink-0);
+}
+.release-theme {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+  background: linear-gradient(180deg, var(--ink-0), #2f1110 45%, var(--ink-0));
+}
+.release-theme__layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity var(--release-theme-duration) ease-in-out;
+}
+.release-theme__layer > img {
+  position: absolute;
+  inset: -32px;
+  width: calc(100% + 64px);
+  max-width: none;
+  height: calc(100% + 64px);
+  object-fit: cover;
+  filter: blur(24px);
+}
+.release-theme__overlay {
+  position: absolute;
+  inset: 0;
+}
+.release-theme::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    var(--ink-0),
+    transparent 24%,
+    transparent 76%,
+    var(--ink-0)
+  );
+}
+.release-theme-host .release-tabs button:not(.selected),
+.release-theme-host .music-controls,
+.release-theme-host .provisional-note {
+  color: var(--bone-1) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .release-theme__layer {
+    transition: none !important;
+  }
+}

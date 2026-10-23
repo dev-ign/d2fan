@@ -4,6 +4,8 @@ import { ArrowRight, LoaderCircle, Play, RotateCw } from "lucide-react";
 import type { MusicRelease } from "../../domain/types";
 import { useAudio } from "../../hooks/useAudio";
 import { Waveform } from "../../components/Waveform";
+import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
+import { resolveReleaseTheme } from "../../domain/releaseTheme";
 import { analytics } from "../../services/analytics";
 
 const platformNames: Record<keyof MusicRelease["streamingLinks"], string> = {
@@ -55,7 +57,12 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
     else await audio.play(active);
   }
   return (
-    <section className="music-section" id="music" aria-labelledby="music-title">
+    <section
+      className="music-section release-theme-host"
+      id="music"
+      aria-labelledby="music-title"
+    >
+      <ReleaseThemeBackground theme={resolveReleaseTheme(active)} />
       <div className="container music-content">
         <div className="section-intro music-intro reveal">
           <h2 id="music-title" className="editorial-heading">
@@ -177,10 +184,10 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               onClick={() => select(releases.indexOf(previous))}
               aria-label={`Select ${previous.title}`}
             >
-              <img src={previous.artworkUrl} alt="" />
+              <img src={previous.coverArt} alt="" />
             </button>
             <div className="active-art" key={active.id}>
-              <img src={active.artworkUrl} alt={`${active.title} cover art`} />
+              <img src={active.coverArt} alt={`${active.title} cover art`} />
               {audio.release?.id === active.id && (
                 <span className="playing-chip">
                   <Waveform active={activePlaying} bars={5} />
@@ -200,7 +207,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               onClick={() => select(releases.indexOf(next))}
               aria-label={`Select ${next.title}`}
             >
-              <img src={next.artworkUrl} alt="" />
+              <img src={next.coverArt} alt="" />
             </button>
           </div>
         </div>

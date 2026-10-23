@@ -15,6 +15,8 @@ import { attribution } from "../services/attribution";
 import { analytics } from "../services/analytics";
 import { AudioProvider } from "./AudioProvider";
 import { useAudio } from "../hooks/useAudio";
+import { ReleaseThemeBackground } from "../components/ReleaseThemeBackground";
+import { resolveReleaseTheme } from "../domain/releaseTheme";
 import { Header } from "../components/Header";
 import { SupportDialog } from "../components/SupportDialog";
 import { Hero, SocialStrip } from "../features/hero/Hero";
@@ -115,13 +117,14 @@ function ReleasePage() {
   const playing =
     audio.release?.id === release.id && audio.status === "playing";
   return (
-    <main className="release-page">
+    <main className="release-page release-theme-host">
+      <ReleaseThemeBackground theme={resolveReleaseTheme(release)} priority />
       <div className="container release-page-inner">
         <Link to="/#music" className="back-link">
           <ArrowLeft size={17} /> ALL MUSIC
         </Link>
         <div className="release-page-grid">
-          <img src={release.artworkUrl} alt={`${release.title} cover art`} />
+          <img src={release.coverArt} alt={`${release.title} cover art`} />
           <div>
             <p className="eyebrow red-text">JONA FERREIRA · SINGLE</p>
             <h1 className="display-heading">{release.title}</h1>

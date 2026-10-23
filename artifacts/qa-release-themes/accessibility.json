@@ -1,0 +1,50 @@
+[
+  {
+    "width": 390,
+    "slug": "accion",
+    "surface": "music",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "slug": "darte-nota",
+    "surface": "music",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "slug": "cafe",
+    "surface": "music",
+    "violations": []
+  },
+  {
+    "width": 390,
+    "slug": "cafe",
+    "surface": "landing",
+    "violations": []
+  },
+  {
+    "width": 1440,
+    "slug": "accion",
+    "surface": "music",
+    "violations": []
+  },
+  {
+    "width": 1440,
+    "slug": "darte-nota",
+    "surface": "music",
+    "violations": []
+  },
+  {
+    "width": 1440,
+    "slug": "cafe",
+    "surface": "music",
+    "violations": []
+  },
+  {
+    "width": 1440,
+    "slug": "cafe",
+    "surface": "landing",
+    "violations": []
+  }
+]
