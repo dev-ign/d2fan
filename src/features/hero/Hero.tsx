@@ -47,7 +47,7 @@ export function Hero({
           to={`/music/${featured.slug}`}
           aria-label={`NEW SINGLE · OUT NOW ${featured.title}`}
         >
-          <img src={featured.artworkUrl} alt="" width="64" height="64" />
+          <img src={featured.coverArt} alt="" width="64" height="64" />
           <span>
             <small>NEW SINGLE · OUT NOW</small>
             <strong>{featured.title}</strong>

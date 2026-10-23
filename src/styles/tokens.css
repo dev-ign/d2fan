@@ -20,6 +20,7 @@
   --glass-ink: #0b0a0ab8;
   --glass-surface: #13111180;
   --container: 1280px;
+  --header-height: 132px;
   --gutter: clamp(20px, 5.55vw, 80px);
   --ease-jona: cubic-bezier(0.2, 0.7, 0.2, 1);
   --duration-feedback: 180ms;

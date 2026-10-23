@@ -18,7 +18,7 @@ const action: MusicRelease = {
   slug: "accion",
   title: "Acción",
   releaseDate: "2026-09-25",
-  artworkUrl: "/art.jpg",
+  coverArt: "/art.jpg",
   previewUrl: "/accion.m4a",
   featured: true,
   streamingLinks: {},

@@ -113,7 +113,7 @@ export function Header({ onSupport }: { onSupport: () => void }) {
                   <>
                     <div className="player-track">
                       <img
-                        src={audio.release.artworkUrl}
+                        src={audio.release.coverArt}
                         alt=""
                         width="64"
                         height="64"

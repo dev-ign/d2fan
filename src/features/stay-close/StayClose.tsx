@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Download } from "lucide-react";
+import type { CaptureResponse } from "../../../supabase/shared/contracts";
 import { fanService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
 import { attribution } from "../../services/attribution";
@@ -12,7 +14,19 @@ export function StayClose() {
     "idle" | "invalid" | "loading" | "error" | "success"
   >("idle");
   const [message, setMessage] = useState("");
-  const [download, setDownload] = useState<string>();
+  const [capture, setCapture] = useState<CaptureResponse | null>(null);
+  const confirmationTitle = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (state === "success") {
+      confirmationTitle.current
+        ?.closest<HTMLElement>(".stay-confirmation")
+        ?.scrollIntoView({
+          block: "nearest",
+          behavior: "instant",
+        });
+      confirmationTitle.current?.focus({ preventScroll: true });
+    }
+  }, [state]);
   const request = useRef(crypto.randomUUID());
   const busy = useRef(false);
   const t = messages[language];
@@ -20,7 +34,7 @@ export function StayClose() {
     request.current = crypto.randomUUID();
     setState("idle");
     setMessage("");
-    setDownload(undefined);
+    setCapture(null);
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -50,8 +64,7 @@ export function StayClose() {
         if (result.data.measurementToken)
           analytics.remember(result.data.measurementToken);
         setState("success");
-        setMessage(result.data.magnetUrl ? t.joined : t.pending);
-        setDownload(result.data.magnetUrl);
+        setCapture(result.data);
         analytics.track("Lead", {}, result.data.eventId);
       } else {
         setState("error");
@@ -82,87 +95,125 @@ export function StayClose() {
           <img src="/assets/gift.svg" alt="" width="24" height="24" /> Exclusive
           Acción wallpaper when you join.
         </p>
-        <form
-          className="stay-form"
-          onSubmit={(e) => void submit(e)}
-          noValidate
-          aria-busy={state === "loading"}
-        >
-          <div className="email-field">
-            <fieldset className="channel-control">
-              <legend className="sr-only">Delivery channel</legend>
-              <label>
-                <input type="radio" name="channel" checked readOnly /> Email
-              </label>
-              <label>
-                <input type="radio" name="channel" disabled /> WhatsApp · coming
-                soon
-              </label>
-            </fieldset>
-            <label className="eyebrow" htmlFor="email">
-              {language === "en" ? "YOUR EMAIL" : "TU CORREO"}
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@email.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                edited();
-              }}
-              disabled={state === "loading"}
-              aria-invalid={state === "invalid"}
-              aria-describedby="email-status"
-            />
-            <label className="language-control">
-              {t.language}
-              <select
-                value={language}
-                onChange={(e) => {
-                  setLanguage(e.target.value as "en" | "es");
-                  edited();
-                }}
-                disabled={state === "loading"}
-              >
-                <option value="en">English</option>
-                <option value="es">Español</option>
-              </select>
-            </label>
-            <label className="consent-control">
-              <input
-                type="checkbox"
-                checked={optIn}
-                onChange={(e) => {
-                  setOptIn(e.target.checked);
-                  edited();
-                }}
-                disabled={state === "loading"}
-              />
-              {t.emailOptIn}
-            </label>
-            <p
-              id="email-status"
-              className={`form-status ${state === "error" || state === "invalid" ? "form-status--error" : ""}`}
-              role="status"
-            >
-              {message}
-            </p>
-            {download && (
-              <a className="button button--outline" href={download}>
-                Download Acción wallpaper
-              </a>
-            )}
-          </div>
-          <button
-            className="button button--bone join-button"
-            type="submit"
-            disabled={state === "loading"}
+        <p className="sr-only" role="status" aria-atomic="true">
+          {state === "success"
+            ? `${t.captureSaved} ${capture?.magnetUrl ? t.rewardReady : t.rewardUnavailable}`
+            : ""}
+        </p>
+        {state === "success" && capture ? (
+          <div
+            className="stay-confirmation"
+            role="region"
+            aria-labelledby="stay-confirmation-title"
+            lang={language}
           >
-            {state === "loading" ? t.saving : "JOIN LA CULTURA"}
-          </button>
-        </form>
+            <span className="stay-confirmation-icon" aria-hidden="true">
+              <Check size={24} strokeWidth={2} />
+            </span>
+            <p className="eyebrow">LA CULTURA</p>
+            <h3
+              id="stay-confirmation-title"
+              ref={confirmationTitle}
+              tabIndex={-1}
+            >
+              {t.culturaTitle}
+            </h3>
+            <p>{t.captureSaved}</p>
+            <div className="stay-reward-status">
+              <p>{capture.magnetUrl ? t.rewardReady : t.rewardUnavailable}</p>
+              {capture.magnetUrl && (
+                <a
+                  className="button button--lime"
+                  href={capture.magnetUrl}
+                  rel="noreferrer"
+                >
+                  <Download size={18} aria-hidden="true" />
+                  {t.rewardDownload}
+                </a>
+              )}
+            </div>
+            <p className="stay-confirmation-consent">
+              {optIn ? t.marketingConfirmation : t.marketingNotRequested}
+            </p>
+          </div>
+        ) : (
+          <form
+            className="stay-form"
+            onSubmit={(e) => void submit(e)}
+            noValidate
+            aria-busy={state === "loading"}
+          >
+            <div className="email-field">
+              <fieldset className="channel-control">
+                <legend className="sr-only">Delivery channel</legend>
+                <label>
+                  <input type="radio" name="channel" checked readOnly /> Email
+                </label>
+                <label>
+                  <input type="radio" name="channel" disabled /> WhatsApp ·
+                  coming soon
+                </label>
+              </fieldset>
+              <label className="eyebrow" htmlFor="email">
+                {language === "en" ? "YOUR EMAIL" : "TU CORREO"}
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@email.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  edited();
+                }}
+                disabled={state === "loading"}
+                aria-invalid={state === "invalid"}
+                aria-describedby="email-status"
+              />
+              <label className="language-control">
+                {t.language}
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    setLanguage(e.target.value as "en" | "es");
+                    edited();
+                  }}
+                  disabled={state === "loading"}
+                >
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                </select>
+              </label>
+              <label className="consent-control">
+                <input
+                  type="checkbox"
+                  checked={optIn}
+                  onChange={(e) => {
+                    setOptIn(e.target.checked);
+                    edited();
+                  }}
+                  disabled={state === "loading"}
+                />
+                {t.emailOptIn}
+              </label>
+              <p
+                id="email-status"
+                className={`form-status ${state === "error" || state === "invalid" ? "form-status--error" : ""}`}
+                role="status"
+              >
+                {message}
+              </p>
+            </div>
+            <button
+              className="button button--bone join-button"
+              type="submit"
+              disabled={state === "loading"}
+            >
+              {state === "loading" ? t.saving : "JOIN LA CULTURA"}
+            </button>
+          </form>
+        )}
         <div className="reward-art" aria-hidden="true">
           <img src="/assets/raw-stay-1.webp" alt="" />
         </div>

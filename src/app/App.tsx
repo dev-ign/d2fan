@@ -15,6 +15,8 @@ import { attribution } from "../services/attribution";
 import { analytics } from "../services/analytics";
 import { AudioProvider } from "./AudioProvider";
 import { useAudio } from "../hooks/useAudio";
+import { ReleaseThemeBackground } from "../components/ReleaseThemeBackground";
+import { resolveReleaseTheme } from "../domain/releaseTheme";
 import { Header } from "../components/Header";
 import { SupportDialog } from "../components/SupportDialog";
 import { Hero, SocialStrip } from "../features/hero/Hero";
@@ -46,13 +48,22 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
     };
   }, []);
   useEffect(() => {
-    if (content && window.location.hash) {
-      requestAnimationFrame(() =>
+    if (!content || !window.location.hash) return;
+    let live = true;
+    let frame = 0;
+    // Font metrics can change the sections above the target after initial render.
+    void document.fonts.ready.then(() => {
+      if (!live) return;
+      frame = requestAnimationFrame(() =>
         document
           .getElementById(window.location.hash.slice(1))
-          ?.scrollIntoView(),
+          ?.scrollIntoView({ block: "start", behavior: "instant" }),
       );
-    }
+    });
+    return () => {
+      live = false;
+      cancelAnimationFrame(frame);
+    };
   }, [content]);
   return (
     <main
@@ -115,13 +126,14 @@ function ReleasePage() {
   const playing =
     audio.release?.id === release.id && audio.status === "playing";
   return (
-    <main className="release-page">
+    <main className="release-page release-theme-host">
+      <ReleaseThemeBackground theme={resolveReleaseTheme(release)} priority />
       <div className="container release-page-inner">
         <Link to="/#music" className="back-link">
           <ArrowLeft size={17} /> ALL MUSIC
         </Link>
         <div className="release-page-grid">
-          <img src={release.artworkUrl} alt={`${release.title} cover art`} />
+          <img src={release.coverArt} alt={`${release.title} cover art`} />
           <div>
             <p className="eyebrow red-text">JONA FERREIRA · SINGLE</p>
             <h1 className="display-heading">{release.title}</h1>
