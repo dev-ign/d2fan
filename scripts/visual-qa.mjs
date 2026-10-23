@@ -2,6 +2,7 @@ import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const outputDir = "artifacts/qa-phase1";
+const baseURL = process.env.VISUAL_QA_URL || "http://127.0.0.1:4173";
 await mkdir(outputDir, { recursive: true });
 const browser = await chromium.launch({
   headless: true,
@@ -13,7 +14,7 @@ const page = await browser.newPage({
 });
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
-await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
 await page.evaluate(() => document.fonts.ready);
 await page.locator(".hero-content").waitFor();
 for (const [name, id] of [
@@ -34,7 +35,7 @@ for (const [name, id] of [
 await page
   .locator(".social-strip")
   .screenshot({ path: `${outputDir}/social-strip.png` });
-await page.getByRole("button", { name: "READ MORE" }).click();
+await page.getByRole("button", { name: "Read artist biography" }).click();
 await page.screenshot({ path: `${outputDir}/biography-dialog.png` });
 await page.keyboard.press("Escape");
 await page.locator("#music").scrollIntoViewIfNeeded();
@@ -75,7 +76,7 @@ const viewports = [];
 await page.emulateMedia({ reducedMotion: "reduce" });
 for (const width of [1440, 1024, 950, 850, 768, 390, 320]) {
   await page.setViewportSize({ width, height: 920 });
-  await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+  await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
   const measured = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     viewportWidth: window.innerWidth,

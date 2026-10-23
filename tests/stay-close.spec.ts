@@ -195,8 +195,9 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
               .querySelector(".site-header")!
               .getBoundingClientRect();
             return (
-              section.top >= header.bottom - 1 &&
+              Math.abs(section.top) <= 1 &&
               heading.top >= header.bottom &&
+              heading.bottom <= innerHeight &&
               document.querySelector(".stay-intro > p")!.getBoundingClientRect()
                 .top >= header.bottom
             );
@@ -222,7 +223,7 @@ test("navigation clicks and cross-route anchors use the same header offset", asy
     await page.setViewportSize({ width, height: 920 });
     for (const start of ["/", "/music/accion"]) {
       await page.goto(start);
-      if (width === 390)
+      if (width === 390 || start.startsWith("/music/"))
         await page.getByRole("button", { name: "Open menu" }).click();
       await page
         .getByRole("navigation", { name: "Main navigation" })
@@ -233,13 +234,14 @@ test("navigation clicks and cross-route anchors use the same header offset", asy
       await expect
         .poll(() =>
           page.evaluate(() => {
-            const target = document.getElementById("stay-close");
+            const target = document.getElementById("stay-title");
             const header = document.querySelector(".site-header");
             return Boolean(
               target &&
               header &&
               target.getBoundingClientRect().top >=
-                header.getBoundingClientRect().bottom - 1,
+                header.getBoundingClientRect().bottom - 1 &&
+              target.getBoundingClientRect().bottom <= innerHeight,
             );
           }),
         )

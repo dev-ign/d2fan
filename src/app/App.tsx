@@ -5,22 +5,19 @@ import {
   Route,
   Routes,
   useLocation,
-  useParams,
+  useMatch,
 } from "react-router-dom";
-import { ArrowLeft, ArrowUpRight, Pause, Play } from "lucide-react";
 import { catalog } from "../config/runtime";
 import { TransactionExperience } from "../features/checkout/TransactionExperience";
 import { PrivacyControls } from "../features/fan-capture/PrivacyControls";
 import { attribution } from "../services/attribution";
 import { analytics } from "../services/analytics";
 import { AudioProvider } from "./AudioProvider";
-import { useAudio } from "../hooks/useAudio";
-import { ReleaseThemeBackground } from "../components/ReleaseThemeBackground";
-import { resolveReleaseTheme } from "../domain/releaseTheme";
 import { Header } from "../components/Header";
 import { SupportDialog } from "../components/SupportDialog";
-import { Hero, SocialStrip } from "../features/hero/Hero";
+import { Hero } from "../features/hero/Hero";
 import { MusicSection } from "../features/music/MusicSection";
+import { ReleasePage } from "../features/music/ReleasePage";
 import { VaultSection } from "../features/vault/VaultSection";
 import { StayClose } from "../features/stay-close/StayClose";
 import { localContentRepository } from "../repositories/localContentRepository";
@@ -68,7 +65,7 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
   return (
     <main
       ref={scope}
-      className={content ? undefined : "home-loading"}
+      className={content ? "home-experience" : "home-loading"}
       aria-busy={!content}
     >
       {content && (
@@ -81,99 +78,11 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
               ) ?? content.releases[0]
             }
           />
-          <SocialStrip />
           <MusicSection releases={content.releases} />
           <VaultSection items={content.vault} onSupport={onSupport} />
           <StayClose />
         </>
       )}
-    </main>
-  );
-}
-
-function ReleasePage() {
-  const { slug } = useParams();
-  const [release, setRelease] = useState<MusicRelease | null | undefined>(
-    undefined,
-  );
-  const audio = useAudio();
-  useEffect(() => {
-    let live = true;
-    void localContentRepository
-      .getReleaseBySlug(catalog.artistId, slug ?? "")
-      .then((item) => {
-        if (live) setRelease(item);
-      });
-    return () => {
-      live = false;
-    };
-  }, [slug]);
-  if (release === undefined) return <main className="release-page" />;
-  if (!release)
-    return (
-      <main className="release-page">
-        <div className="container">
-          <p className="eyebrow">RELEASE NOT FOUND</p>
-          <h1 className="display-heading">
-            NOT <em>HERE.</em>
-          </h1>
-          <Link to="/" className="button button--outline">
-            <ArrowLeft size={16} /> Back to music
-          </Link>
-        </div>
-      </main>
-    );
-  const playing =
-    audio.release?.id === release.id && audio.status === "playing";
-  return (
-    <main className="release-page release-theme-host">
-      <ReleaseThemeBackground theme={resolveReleaseTheme(release)} priority />
-      <div className="container release-page-inner">
-        <Link to="/#music" className="back-link">
-          <ArrowLeft size={17} /> ALL MUSIC
-        </Link>
-        <div className="release-page-grid">
-          <img src={release.coverArt} alt={`${release.title} cover art`} />
-          <div>
-            <p className="eyebrow red-text">JONA FERREIRA · SINGLE</p>
-            <h1 className="display-heading">{release.title}</h1>
-            <p>
-              {new Date(`${release.releaseDate}T12:00:00`).toLocaleString(
-                "en-US",
-                { month: "long", day: "numeric", year: "numeric" },
-              )}
-            </p>
-            <div className="release-page-actions">
-              <button
-                className="button button--bone"
-                type="button"
-                onClick={() =>
-                  void (audio.release?.id === release.id
-                    ? audio.toggle()
-                    : audio.play(release))
-                }
-              >
-                {playing ? <Pause size={18} /> : <Play size={18} />}{" "}
-                {playing ? "Pause preview" : "Play preview"}
-              </button>
-              {release.streamingLinks.appleMusic && (
-                <a
-                  className="button button--outline"
-                  href={release.streamingLinks.appleMusic}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Apple Music <ArrowUpRight size={17} />
-                </a>
-              )}
-            </div>
-            <p className="provisional-note">
-              Release page preview. Full editorial content is pending an
-              approved design.
-            </p>
-          </div>
-        </div>
-      </div>
     </main>
   );
 }
@@ -184,8 +93,11 @@ function AppShell() {
   );
   const [resumeAmount, setResumeAmount] = useState<number>();
   const location = useLocation();
+  const releaseRoute = useMatch("/music/:slug");
   useEffect(() => {
-    if (!location.hash) window.scrollTo(0, 0);
+    document.documentElement.dataset.experience =
+      location.pathname === "/" ? "home" : "release";
+    if (!location.hash) window.scrollTo({ top: 0, behavior: "instant" });
     attribution();
     if (window.location.search)
       history.replaceState(
@@ -194,10 +106,28 @@ function AppShell() {
         window.location.pathname + window.location.hash,
       );
     analytics.track("PageView");
+    let live = true;
+    let frame = 0;
+    if (["#music", "#vault", "#stay-close", "#top"].includes(location.hash)) {
+      void document.fonts.ready.then(() => {
+        if (!live) return;
+        frame = requestAnimationFrame(() =>
+          document
+            .getElementById(location.hash.slice(1))
+            ?.scrollIntoView({ block: "start" }),
+        );
+      });
+    }
+    return () => {
+      live = false;
+      cancelAnimationFrame(frame);
+    };
   }, [location.pathname, location.hash]);
   return (
     <>
       <Header
+        key={location.pathname}
+        variant={releaseRoute ? "release" : "home"}
         onSupport={() => {
           setResumeAmount(undefined);
           setSupportItem("tip");
@@ -227,13 +157,15 @@ function AppShell() {
           }
         />
       </Routes>
-      <TransactionExperience
-        onResume={(amount) => {
-          setResumeAmount(amount);
-          setSupportItem("tip");
-        }}
-      />
-      <PrivacyControls />
+      <footer className="experience-footer">
+        <TransactionExperience
+          onResume={(amount) => {
+            setResumeAmount(amount);
+            setSupportItem("tip");
+          }}
+        />
+        <PrivacyControls />
+      </footer>
       {supportItem !== null && (
         <SupportDialog
           initialAmount={resumeAmount}

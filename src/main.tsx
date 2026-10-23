@@ -11,6 +11,7 @@ import App from "./app/App";
 import "./styles/tokens.css";
 import "./styles/globals.css";
 import "./styles/release-theme.css";
+import "./styles/experience.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

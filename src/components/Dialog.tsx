@@ -9,12 +9,16 @@ export function Dialog({
   children,
   className = "",
   footer,
+  closeLabel = "Close dialog",
+  id,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   className?: string;
   footer?: ReactNode;
+  closeLabel?: string;
+  id?: string;
 }) {
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -65,6 +69,7 @@ export function Dialog({
     >
       <div
         ref={panel}
+        id={id}
         className={`dialog-panel ${className}`}
         role="dialog"
         aria-modal="true"
@@ -74,7 +79,7 @@ export function Dialog({
           className="dialog-close icon-button"
           type="button"
           onClick={onClose}
-          aria-label="Close dialog"
+          aria-label={closeLabel}
         >
           <X size={24} />
         </button>
