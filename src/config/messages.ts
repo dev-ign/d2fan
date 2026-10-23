@@ -18,10 +18,16 @@ export const messages = {
     saving: "SAVING…",
     invalid: "Enter a valid email address.",
     saved: "Your contact is saved. Continue to Stripe for secure payment.",
-    joined:
-      "You’re captured. Check your email for delivery and, if selected, confirmation of music updates.",
-    pending:
-      "Your contact is saved. The exclusive is still being prepared; delivery is pending.",
+    culturaTitle: "You're in La Cultura.",
+    captureSaved: "Your contact is saved. Thanks for being part of this.",
+    rewardUnavailable:
+      "Your exclusive is still being prepared. It isn’t available to download yet.",
+    rewardReady: "Your exclusive Acción wallpaper is ready to download.",
+    rewardDownload: "Download Acción wallpaper",
+    marketingConfirmation:
+      "You requested music updates. A separate email confirmation is required before marketing begins.",
+    marketingNotRequested:
+      "You didn’t request music updates with this signup. Your existing preferences stay the same.",
     tax: "Support is a tip / payment to the artist — not a charitable donation, and not tax-deductible.",
     refund:
       "Digital access is delivered after confirmed payment. Contact the artist for refund requests; a full refund revokes access. Your statutory rights apply.",
@@ -49,10 +55,16 @@ export const messages = {
     invalid: "Introduce un correo válido.",
     saved:
       "Guardamos tu contacto. Continúa a Stripe para pagar de forma segura.",
-    joined:
-      "Guardamos tu contacto. Revisa tu correo para la entrega y, si elegiste novedades, la confirmación.",
-    pending:
-      "Guardamos tu contacto. Estamos preparando el exclusivo; la entrega está pendiente.",
+    culturaTitle: "Ya eres parte de La Cultura.",
+    captureSaved: "Guardamos tu contacto. Gracias por ser parte de esto.",
+    rewardUnavailable:
+      "Estamos preparando tu exclusivo. Todavía no está disponible para descargar.",
+    rewardReady: "Tu wallpaper exclusivo de Acción está listo para descargar.",
+    rewardDownload: "Descargar wallpaper de Acción",
+    marketingConfirmation:
+      "Pediste novedades musicales. Se requiere una confirmación por correo antes de empezar a enviarlas.",
+    marketingNotRequested:
+      "No pediste novedades musicales con este registro. Tus preferencias anteriores siguen igual.",
     tax: "El apoyo es un pago al artista, no una donación benéfica ni deducible de impuestos.",
     refund:
       "El acceso digital se entrega tras confirmar el pago. Contacta al artista para pedir un reembolso; un reembolso total revoca el acceso. Se respetan tus derechos legales.",

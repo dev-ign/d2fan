@@ -10,6 +10,7 @@ dist/
 playwright-report/
 test-results/
 coverage/
+/docs/
 
 # Local environment and secrets (keep setup templates tracked)
 .env

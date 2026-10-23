@@ -109,9 +109,12 @@ test("capture loading and accepted mocked response, language, opt in and disable
   await form.getByRole("button", { name: "JOIN LA CULTURA" }).click();
   await expect(form.getByRole("button", { name: "GUARDANDO…" })).toBeDisabled();
   await expect(
-    form.getByRole("link", { name: "Download Acción wallpaper" }),
+    page.getByRole("link", { name: "Descargar wallpaper de Acción" }),
   ).toHaveAttribute("href", capture.magnetUrl);
-  await page.screenshot({ path: "artifacts/qa-phase1/capture-success.png" });
+  await mkdir("artifacts/qa-stay-close", { recursive: true });
+  await page.screenshot({
+    path: "artifacts/qa-stay-close/capture-success-es.png",
+  });
 });
 test("verified return grants access, survives reload and never trusts session ID alone", async ({
   page,
@@ -196,6 +199,7 @@ test("responsive header bounds, modal keyboard trap and no horizontal overflow",
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
   for (const width of [
     320, 390, 480, 640, 768, 820, 900, 950, 1024, 1200, 1440,
   ]) {

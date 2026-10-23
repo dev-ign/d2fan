@@ -102,6 +102,7 @@ test("small screens have reachable navigation and no horizontal overflow", async
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
   const widths = await page.evaluate(() => ({
     page: document.documentElement.scrollWidth,
     viewport: window.innerWidth,

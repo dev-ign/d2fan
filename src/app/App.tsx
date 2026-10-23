@@ -48,13 +48,22 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
     };
   }, []);
   useEffect(() => {
-    if (content && window.location.hash) {
-      requestAnimationFrame(() =>
+    if (!content || !window.location.hash) return;
+    let live = true;
+    let frame = 0;
+    // Font metrics can change the sections above the target after initial render.
+    void document.fonts.ready.then(() => {
+      if (!live) return;
+      frame = requestAnimationFrame(() =>
         document
           .getElementById(window.location.hash.slice(1))
-          ?.scrollIntoView(),
+          ?.scrollIntoView({ block: "start", behavior: "instant" }),
       );
-    }
+    });
+    return () => {
+      live = false;
+      cancelAnimationFrame(frame);
+    };
   }, [content]);
   return (
     <main

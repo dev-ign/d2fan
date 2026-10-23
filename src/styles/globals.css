@@ -6,6 +6,7 @@
 }
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--header-height);
 }
 body {
   margin: 0;
@@ -167,7 +168,7 @@ img {
   display: flex;
   align-items: center;
   width: min(calc(100% - 2 * var(--gutter)), var(--container));
-  height: 132px;
+  height: var(--header-height);
   margin: auto;
   padding-left: 18px;
 }
@@ -1205,8 +1206,8 @@ img {
 }
 
 @media (max-width: 1100px) {
-  .header-inner {
-    height: 110px;
+  :root {
+    --header-height: 110px;
   }
   .site-nav {
     gap: 22px;
@@ -1251,9 +1252,10 @@ img {
 @media (max-width: 760px) {
   :root {
     --gutter: 20px;
+    --header-height: 74px;
   }
   .header-inner {
-    height: 74px;
+    height: var(--header-height);
     padding-left: 0;
   }
   .wordmark {
@@ -1262,7 +1264,7 @@ img {
   .site-nav {
     display: none;
     position: absolute;
-    top: 74px;
+    top: var(--header-height);
     left: 0;
     right: 0;
     margin: 0;
@@ -1793,5 +1795,128 @@ img {
   }
   .dialog-footer {
     padding: 16px 22px 20px;
+  }
+}
+
+/* Capture confirmation shares the form column; artwork stays out of its flow. */
+.stay-confirmation {
+  position: relative;
+  width: 944px;
+  max-width: calc(100% - 320px);
+  margin: 38px 0 0 20px;
+  padding: 32px;
+  border: 1px solid var(--line-control);
+  border-top: 2px solid var(--lime-support);
+  border-radius: 8px;
+  background: var(--ink-2);
+}
+.stay-confirmation-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 24px;
+  border: 1px solid var(--lime-support);
+  border-radius: 50%;
+  color: var(--lime-support);
+}
+.stay-confirmation .eyebrow {
+  color: var(--lime-support);
+  margin: 0 0 12px;
+}
+.stay-confirmation h3 {
+  margin: 0 0 16px;
+  font: 800 clamp(32px, 3.4vw, 48px)/1.05 var(--font-display);
+  color: var(--bone-0);
+}
+.stay-confirmation p {
+  color: var(--bone-soft);
+  line-height: 1.6;
+}
+.stay-reward-status {
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-hairline);
+}
+.stay-reward-status .button {
+  margin-top: 12px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+.stay-confirmation .stay-confirmation-consent {
+  margin: 24px 0 0;
+  color: var(--bone-1);
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .stay-confirmation {
+    width: 100%;
+    max-width: none;
+    margin: 30px 0 0;
+    padding: 24px;
+  }
+  .stay-content {
+    display: flex;
+    flex-direction: column;
+  }
+  .stay-content > .reward-art {
+    position: relative;
+    top: auto;
+    right: auto;
+    align-self: flex-end;
+    flex: none;
+    margin-top: 32px;
+  }
+}
+/* Let changing capture content determine the section's height and artwork row. */
+@media (min-width: 761px) {
+  .stay-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 253px;
+    column-gap: 43px;
+    align-content: start;
+  }
+  .stay-content > .stay-intro,
+  .stay-content > .incentive {
+    grid-column: 1 / -1;
+  }
+  .stay-content > .stay-form,
+  .stay-content > .stay-confirmation {
+    grid-column: 1;
+    grid-row: 3;
+    width: min(944px, calc(100% - 20px));
+    max-width: none;
+    min-width: 0;
+  }
+  .stay-content > .reward-art {
+    position: static;
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 38px;
+  }
+}
+.stay-content > .site-footer {
+  position: static;
+  grid-column: 1 / -1;
+  margin-top: 86px;
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .stay-intro {
+    display: block;
+  }
+  .stay-intro > p {
+    width: auto;
+    max-width: 493px;
+    margin: 30px 0 0 20px;
+  }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .stay-content > .stay-form {
+    display: block;
+  }
+  .stay-form .join-button {
+    width: 100%;
+    margin-top: 24px;
   }
 }
