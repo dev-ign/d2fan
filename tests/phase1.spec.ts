@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import { expectResponsiveLayout } from "./helpers/responsive-layout";
 const capture = {
   captureToken: "scoped-capture",
   eventId: "capture:test",
@@ -199,26 +200,7 @@ test("responsive header bounds, modal keyboard trap and no horizontal overflow",
     320, 390, 480, 640, 768, 820, 900, 950, 1024, 1200, 1440,
   ]) {
     await page.setViewportSize({ width, height: 920 });
-    const geometry = await page.evaluate(() => {
-      const wordmark = document
-        .querySelector(".wordmark")!
-        .getBoundingClientRect();
-      const actions = document
-        .querySelector(".header-actions")!
-        .getBoundingClientRect();
-      const nav = document.querySelector(".site-nav")!;
-      const bounds = nav.getBoundingClientRect();
-      return {
-        overflow: document.documentElement.scrollWidth > innerWidth,
-        collision:
-          getComputedStyle(nav).display !== "none" &&
-          (bounds.left < wordmark.right || bounds.right > actions.left),
-      };
-    });
-    expect(geometry, { message: `width ${width}` }).toEqual({
-      overflow: false,
-      collision: false,
-    });
+    await expectResponsiveLayout(page);
   }
   await page.setViewportSize({ width: 320, height: 740 });
   await page.getByRole("button", { name: "Open menu" }).click();

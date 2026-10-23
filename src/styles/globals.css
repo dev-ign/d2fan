@@ -71,10 +71,13 @@ img {
 }
 .editorial-heading {
   display: flex;
+  /* Fallback fonts can be wider while the display faces load. */
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 20px;
   margin: 0;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .editorial-heading span {
   color: #b1aaa3;
