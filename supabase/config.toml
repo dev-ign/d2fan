@@ -1,0 +1,35 @@
+project_id = "jona-direct-to-fan"
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+[db]
+port = 54322
+major_version = 17
+[studio]
+enabled = true
+port = 54323
+[functions.capture-fan]
+verify_jwt = false
+[functions.create-checkout]
+verify_jwt = false
+[functions.checkout-status]
+verify_jwt = false
+[functions.stripe-webhook]
+verify_jwt = false
+[functions.redeem-vault]
+verify_jwt = false
+[functions.recover-access]
+verify_jwt = false
+[functions.manage-consent]
+verify_jwt = false
+[functions.scheduled-messaging]
+verify_jwt = false
+[functions.analytics-event]
+verify_jwt = false
+
+[functions.deliver-lead-magnet]
+verify_jwt = false
+
+[functions.revoke-measurement]
+verify_jwt = false

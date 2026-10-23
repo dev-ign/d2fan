@@ -1,0 +1,8 @@
+{
+  "nodeModulesDir": "auto",
+  "compilerOptions": { "strict": true },
+  "tasks": {
+    "check": "deno check functions/*/index.ts",
+    "test": "deno test --allow-env tests/*_test.ts"
+  }
+}

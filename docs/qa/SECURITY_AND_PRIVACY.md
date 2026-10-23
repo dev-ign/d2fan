@@ -1,0 +1,38 @@
+# Security, privacy and residual risks
+
+## Trust boundaries reviewed
+
+| Threat                      | Implemented mitigation                                                                                                       | Evidence / remaining validation                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Fake checkout success       | Only raw signed Stripe events and current paid session state reach atomic fulfillment                                        | Forged signature rejection test; actual Stripe test pending                                    |
+| Price tampering             | Integer cents, server shared catalog, bounded tip range, fulfillment compares stored amount/currency/session                 | Unit, Edge rejection and DB rollback tests                                                     |
+| Concurrent/retried webhooks | Row lock, unique event/session/intent/attempt, atomic purchase/unlock/outbox                                                 | Embedded PostgreSQL replay and rollback tests; hosted concurrent replay pending                |
+| Unauthorized Vault          | RLS/no table grants; signed scope/time/artist, purchase/entitlement recheck; private bucket                                  | Token/negative role tests; hosted storage signing pending                                      |
+| Email enumeration/takeover  | Generic recovery response; public capture never authorizes existing ownership, does not merge phones                         | Endpoint code review + scope tests; response timing is not cryptographically indistinguishable |
+| Checkout guessing           | Status capability required; Stripe session ID alone rejected                                                                 | Edge and browser tests                                                                         |
+| Email abuse                 | Per-IP/contact digest limits, validated contact, fixed recipient/template/redirect, no arbitrary mail API                    | Local origin/worker/input checks; ingress rate header semantics require hosted test            |
+| Consent misrepresentation   | Unchecked optional marketing; inbox confirmation; auditable grant/revoke; job permission recheck                             | SQL confirmation/revocation tests; provider delivery pending                                   |
+| Open redirects              | Site origin comes from a server secret; storage paths from server-only map; Checkout URLs from Stripe                        | No request redirect field                                                                      |
+| Metadata/URL leakage        | Campaign allowlist and bounds, browser URL query removed after capture, fragments removed on entry, no raw contacts in Pixel | Unit and browser attribution tests; real Meta inspection pending                               |
+| Privileged DB/public keys   | Browser uses only public configuration; all sensitive tables and RPCs denied to anon/authenticated                           | SQL negative reads/mutations/RPC tests                                                         |
+| Cross-channel impersonation | WhatsApp unavailable; phone linking not attempted without verification                                                       | Explicit UI disabled state                                                                     |
+
+Tokens are bearer credentials. Treat access emails and browser session storage as sensitive; forwarded links authorize whoever holds them until expiry. Use HTTPS, no-referrer, private email accounts, and a reviewed CSP. A full refund blocks future redemption immediately, but an already issued Storage URL can work for its remaining five minute lifetime. No signing secret or raw token is logged. No public paid file is present in the frontend.
+
+The worker uses six bounded attempts and provider idempotency; exactly-once external delivery is not promised. A provider accepting email can still bounce later. No delivery/bounce/complaint webhook adapter is implemented; the operator must monitor provider suppression and delivery reports. Consider automated suppression ingestion before larger campaigns.
+
+Analytics consent is independent of marketing email. The browser stores per-action revocation capabilities for recent captures/checkouts. Turning measurement off stops Pixel and asks `revoke-measurement` to cancel matching queued jobs and disable future purchase measurement on the attempt. Worker code rechecks cancellation before dispatch. In-flight network requests and events already accepted by Meta cannot be recalled. If the network is unavailable, the UI reports that server cancellation needs retry. Clearing browser storage or using another browser removes those capabilities; the operator handles related data requests after ownership verification. Global cross-device analytics identity/consent synchronization is not implemented.
+
+Anonymous public APIs can still be abused by distributed traffic. Salted rate buckets are a modest initial protection, not a distributed bot defense. Validate Supabase's trusted forwarded IP behavior and consider an accessible Turnstile challenge or edge limits if abuse appears. Do not rely on CORS as authentication. No full multi-tenant isolation, fan accounts or public administration is claimed.
+
+## Retention and operator procedures
+
+- Anonymous campaign attribution: 30 days in local storage, bounded meaningful fields only. Measurement preference persists until changed/cleared; access context expires within a day in session storage and links have shorter server scopes.
+- Rate-limit digests: clear rows older than seven days periodically (`delete from public.rate_limits where expires_at < now() - interval '7 days'`). No raw IP is retained there.
+- Captures with no verified permission and no purchases: review after 90 days; remove or pseudonymize after a verified owner-approved retention review. Paid records are retained according to applicable accounting/refund obligations decided by the owner.
+- Operational email payloads include recipient and private links in protected DB rows. After 30 days, remove `emailBody` from completed/skipped payloads using a reviewed operator query; retain only minimal receipt status/dedupe evidence. Keep webhook IDs/purchase invariants as long as retries/recovery/accounting require.
+- Marketing event/attribution history: review at 12 months; delete/pseudonymize unnecessary data under the owner's published retention policy. Backups and provider copies have their own retention settings.
+- Export only verified/currently consented contacts through the private operator SQL query. Secure the CSV and remove it when its approved use ends. Manual sends must recheck unsubscribe and provider suppression status.
+- Corrections/deletion: verify the requester through their existing email first. Revoke marketing, cancel pending communications, pseudonymize contacts/event metadata, process provider requests, and preserve legally required financial evidence. Document the operator action. Do not provide public delete-by-email endpoints.
+
+These are implementation procedures and release review items, not a claim of legal compliance. The owner still needs real privacy disclosures, actual refund/tax handling, sender/postal details, recipient jurisdiction review, and final provider settings.

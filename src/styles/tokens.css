@@ -1,0 +1,32 @@
+:root {
+  /* Figma: Jona design language, frame 20:24 */
+  --ink-0: #0b0a0a;
+  --ink-2: #131111;
+  --ink-3: #1c1918;
+  --bone-0: #f2ece3;
+  --bone-soft: #d8d0c4;
+  --bone-1: #bdb4a8;
+  --bone-2: #8c847a;
+  --red-action: #c62127;
+  --red-text: #ff6a5c;
+  --green-unlocked: #8fd3a6;
+  --lime-support: #adf100;
+  --lime-support-hover: #9bd800;
+  --on-lime: #111111;
+  --line-hairline: #f2ece31a;
+  --line-glass: #f2ece329;
+  --line-control: #f2ece333;
+  --state-hover: #f2ece30f;
+  --glass-ink: #0b0a0ab8;
+  --glass-surface: #13111180;
+  --container: 1280px;
+  --gutter: clamp(20px, 5.55vw, 80px);
+  --ease-jona: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-feedback: 180ms;
+  --duration-component: 400ms;
+  --duration-cinematic: 700ms;
+  --font-display: "Sofia Sans Extra Condensed", Impact, sans-serif;
+  --font-editorial: "Instrument Serif", Georgia, serif;
+  --font-body: "Archivo", Arial, sans-serif;
+  --font-mono: "Geist Mono", monospace;
+}

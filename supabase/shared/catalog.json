@@ -1,0 +1,36 @@
+{
+  "artistId": "jona-ferreira",
+  "currency": "usd",
+  "support": {
+    "presets": [500, 1500, 3000],
+    "defaultMinor": 1500,
+    "minMinor": 500,
+    "maxMinor": 100000
+  },
+  "vault": [
+    {
+      "slug": "untitled-demo",
+      "priceMinor": 1500,
+      "availability": "coming_soon",
+      "releaseSlug": null
+    },
+    {
+      "slug": "cafe-studio",
+      "priceMinor": 1500,
+      "availability": "coming_soon",
+      "releaseSlug": "cafe"
+    },
+    {
+      "slug": "accion-wallpaper",
+      "priceMinor": 500,
+      "availability": "coming_soon",
+      "releaseSlug": "accion"
+    },
+    {
+      "slug": "shorty-cut",
+      "priceMinor": 3000,
+      "availability": "coming_soon",
+      "releaseSlug": null
+    }
+  ]
+}
