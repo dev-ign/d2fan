@@ -1,12 +1,27 @@
-node_modules
-dist
-.DS_Store
-playwright-report
-test-results
+# Dependencies, build output, and tool caches
+node_modules/
+dist/
+*.tsbuildinfo
+.cache/
+.vite/
+
+# Generated QA artifacts and test reports
+/artifacts/
+playwright-report/
+test-results/
+coverage/
+
+# Local environment and secrets (keep setup templates tracked)
 .env
 .env.*
 !.env.example
 !supabase/.env.example
-supabase/.temp
-supabase/.branches
-supabase/node_modules
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+
+# Runtime logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
