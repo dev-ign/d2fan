@@ -14,6 +14,7 @@ import {
   verify,
   rpc,
   signedFile,
+  FileSigningError,
   digest,
   enqueue,
   contactLimit,
@@ -58,8 +59,18 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
   if (b.source === "stay_close") {
     try {
       magnetUrl = await signedFile("lead-magnet");
-    } catch {
-      /* Capture is real; delivery explicitly pending. */
+    } catch (error) {
+      // Only fixed categories reach logs; capture remains successful. Never log
+      // the exception itself: provider messages can contain paths or secrets.
+      console.error(
+        JSON.stringify({
+          event: "free_reward_signing_failed",
+          category:
+            error instanceof FileSigningError
+              ? error.category
+              : "storage_api_failure",
+        }),
+      );
     }
   }
   if (b.analyticsConsent)

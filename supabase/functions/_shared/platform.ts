@@ -59,15 +59,91 @@ export async function rpc<T>(
   if (error) throw new Error("database_unavailable");
   return data as T;
 }
+type FileSigningFailureCategory =
+  | "missing_configuration"
+  | "malformed_json"
+  | "missing_mapping"
+  | "missing_storage_object"
+  | "insufficient_permissions"
+  | "storage_api_failure";
+
+export class FileSigningError extends Error {
+  constructor(
+    readonly category: FileSigningFailureCategory,
+    code = "content_unavailable",
+  ) {
+    // Preserve public operational codes; never retain provider errors or secrets.
+    super(code);
+  }
+}
+
+function storageSigningError(error: unknown): FileSigningError {
+  if (error && typeof error === "object") {
+    const details = error as Record<string, unknown>;
+    const code = details.code ?? details.error;
+    const status = Number(details.statusCode ?? details.status);
+    if (
+      status === 401 ||
+      status === 403 ||
+      ["AccessDenied", "InvalidJWT", "unauthorized"].includes(String(code))
+    )
+      return new FileSigningError("insufficient_permissions");
+    if (code === "NoSuchBucket")
+      return new FileSigningError("missing_configuration");
+    // Legacy Storage can report an absent object with HTTP 400. Do not treat
+    // every 404 as a missing object: it could be a bucket or gateway failure.
+    if (code === "NoSuchKey" || details.message === "Object not found")
+      return new FileSigningError("missing_storage_object");
+  }
+  return new FileSigningError("storage_api_failure");
+}
+
 export async function signedFile(slug: string) {
-  const paths = JSON.parse(
-    Deno.env.get("PRIVATE_FILE_PATHS") || "{}",
-  ) as Record<string, string>;
-  if (!paths[slug]) throw new Error("content_not_configured");
-  const { data, error } = await db()
-    .storage.from("vault-private")
-    .createSignedUrl(paths[slug], 300, { download: true });
-  if (error || !data) throw new Error("content_unavailable");
+  const raw = Deno.env.get("PRIVATE_FILE_PATHS");
+  if (!raw)
+    throw new FileSigningError(
+      "missing_configuration",
+      "content_not_configured",
+    );
+  let paths: unknown;
+  try {
+    paths = JSON.parse(raw);
+  } catch {
+    throw new FileSigningError("malformed_json");
+  }
+  if (
+    !paths ||
+    typeof paths !== "object" ||
+    Array.isArray(paths) ||
+    !Object.hasOwn(paths, slug) ||
+    typeof (paths as Record<string, unknown>)[slug] !== "string" ||
+    !(paths as Record<string, string>)[slug].trim()
+  )
+    throw new FileSigningError("missing_mapping", "content_not_configured");
+  let client: ReturnType<typeof db>;
+  try {
+    client = db();
+  } catch (error) {
+    throw new FileSigningError(
+      "missing_configuration",
+      error instanceof Error && error.message === "not_configured"
+        ? "not_configured"
+        : "content_unavailable",
+    );
+  }
+  let result;
+  try {
+    result = await client.storage
+      .from("vault-private")
+      .createSignedUrl((paths as Record<string, string>)[slug], 300, {
+        download: true,
+      });
+  } catch (error) {
+    throw storageSigningError(error);
+  }
+  const { data, error } = result;
+  if (error) throw storageSigningError(error);
+  if (!data?.signedUrl) throw new FileSigningError("storage_api_failure");
   return data.signedUrl;
 }
 export async function limited(req: Request, endpoint: string, limit = 20) {
