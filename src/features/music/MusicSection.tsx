@@ -1,3 +1,4 @@
+import { useLocale, text, audioError } from "../../hooks/useLocale";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, LoaderCircle, Play, RotateCw } from "lucide-react";
@@ -10,6 +11,7 @@ import { analytics } from "../../services/analytics";
 import { platformNames } from "../../config/streaming";
 
 export function MusicSection({ releases }: { releases: MusicRelease[] }) {
+  const { t, locale } = useLocale();
   const [index, setIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -60,13 +62,9 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
       <div className="container music-content">
         <div className="section-intro music-intro reveal">
           <h2 id="music-title" className="editorial-heading">
-            <span>LA</span>
-            <em>MUSICA.</em>
+            <span>{t.music.first}</span>
+            <em>{t.music.second}</em>
           </h2>
-          <p>
-            Preview the full discography and access the music on streaming
-            platforms.
-          </p>
         </div>
         <div className="music-main">
           <div className="release-details reveal">
@@ -78,12 +76,12 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
                 disabled={activeLoading}
                 aria-label={
                   activeLoading
-                    ? `Loading ${active.title} preview`
+                    ? text(t.music.loading, { title: active.title })
                     : activeError
-                      ? `Retry ${active.title} preview`
+                      ? text(t.music.retry, { title: active.title })
                       : activePlaying
-                        ? `Pause ${active.title} preview`
-                        : `Play ${active.title} preview`
+                        ? text(t.music.pause, { title: active.title })
+                        : text(t.music.play, { title: active.title })
                 }
               >
                 {activeLoading ? (
@@ -99,9 +97,9 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               <div>
                 <h3>{active.title}</h3>
                 <p>
-                  Single ·{" "}
+                  {t.common.single} ·{" "}
                   {new Date(`${active.releaseDate}T12:00:00`).toLocaleString(
-                    "en-US",
+                    locale === "es" ? "es" : "en-US",
                     { month: "long", year: "numeric" },
                   )}
                 </p>
@@ -109,7 +107,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
             </div>
             {audio.release?.id === active.id && audio.error && (
               <p className="preview-error" role="alert">
-                {audio.error}
+                {audioError(audio.error, t)}
               </p>
             )}
             <div className="release-actions">
@@ -121,14 +119,11 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
                   aria-haspopup="menu"
                   onClick={() => setMenuOpen(!menuOpen)}
                 >
-                  Listen on{" "}
+                  {t.music.listen}{" "}
                   <img src="/assets/down.svg" alt="" width="12" height="12" />
                 </button>
                 {menuOpen && (
                   <div className="stream-menu" role="menu">
-                    <p className="eyebrow">
-                      OPEN {active.title.toUpperCase()} IN
-                    </p>
                     {Object.entries(active.streamingLinks).map(
                       ([platform, url]) =>
                         url && (
@@ -164,34 +159,34 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
                 )}
               </div>
               <Link className="release-link" to={`/music/${active.slug}`}>
-                Release page <ArrowRight size={18} />
+                {t.music.releasePage} <ArrowRight size={18} />
               </Link>
             </div>
           </div>
-          <div
-            className="artwork-stage reveal"
-            aria-label="Release artwork carousel"
-          >
+          <div className="artwork-stage reveal" aria-label={t.music.artwork}>
             <button
               type="button"
               className="neighbor-art neighbor-art--left"
               onClick={() => select(releases.indexOf(previous))}
-              aria-label={`Select ${previous.title}`}
+              aria-label={text(t.common.select, { title: previous.title })}
             >
               <img src={previous.coverArt} alt="" />
             </button>
             <div className="active-art" key={active.id}>
-              <img src={active.coverArt} alt={`${active.title} cover art`} />
+              <img
+                src={active.coverArt}
+                alt={text(t.common.cover, { title: active.title })}
+              />
               {audio.release?.id === active.id && (
                 <span className="playing-chip">
                   <Waveform active={activePlaying} bars={5} />
                   {activeLoading
-                    ? "LOADING PREVIEW"
+                    ? t.music.chipLoading
                     : activeError
-                      ? "PREVIEW UNAVAILABLE"
+                      ? t.music.chipError
                       : activePlaying
-                        ? "NOW PLAYING"
-                        : "PREVIEW PAUSED"}
+                        ? t.music.chipPlaying
+                        : t.music.chipPaused}
                 </span>
               )}
             </div>
@@ -199,7 +194,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               type="button"
               className="neighbor-art neighbor-art--right"
               onClick={() => select(releases.indexOf(next))}
-              aria-label={`Select ${next.title}`}
+              aria-label={text(t.common.select, { title: next.title })}
             >
               <img src={next.coverArt} alt="" />
             </button>
@@ -210,7 +205,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
           <button
             className="circle-arrow"
             type="button"
-            aria-label="Previous release"
+            aria-label={t.music.previous}
             onClick={() => select(index - 1)}
           >
             <img src="/assets/arrow-left.svg" alt="" width="16" height="16" />
@@ -218,7 +213,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
           <button
             className="circle-arrow"
             type="button"
-            aria-label="Next release"
+            aria-label={t.music.next}
             onClick={() => select(index + 1)}
           >
             <img src="/assets/arrow-right.svg" alt="" width="16" height="16" />
@@ -227,7 +222,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
         <div
           className="release-tabs reveal"
           role="group"
-          aria-label="Choose a release"
+          aria-label={t.music.choose}
         >
           {releases.map((release, tabIndex) => (
             <button

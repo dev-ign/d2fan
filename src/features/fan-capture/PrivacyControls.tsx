@@ -1,16 +1,14 @@
+import { useLocale } from "../../hooks/useLocale";
 import { useState } from "react";
 import { analytics } from "../../services/analytics";
 export function PrivacyControls() {
+  const { t } = useLocale();
   const [allowed, setAllowed] = useState(analytics.allowed);
-  const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
   async function change(value: boolean) {
     setAllowed(value);
     const success = await analytics.setConsent(value);
-    setMessage(
-      success
-        ? ""
-        : "Browser measurement is off. Could not update queued server events; reconnect and toggle off again to retry.",
-    );
+    setFailed(!success);
   }
   return (
     <div className="privacy-controls">
@@ -20,10 +18,10 @@ export function PrivacyControls() {
           checked={allowed}
           onChange={(e) => void change(e.target.checked)}
         />{" "}
-        Allow campaign measurement with Meta
+        {t.privacy.allow}
       </label>
-      <span>Optional. Music and purchases work either way.</span>
-      <p role="status">{message}</p>
+      <span>{t.privacy.optional}</span>
+      <p role="status">{failed ? t.privacy.error : ""}</p>
     </div>
   );
 }

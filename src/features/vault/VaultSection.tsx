@@ -1,3 +1,4 @@
+import { useLocale, vaultCopy } from "../../hooks/useLocale";
 import { useState } from "react";
 import type { VaultItem } from "../../domain/types";
 import { Dialog } from "../../components/Dialog";
@@ -12,26 +13,30 @@ function VaultCard({
   onSelect: (item: VaultItem) => void;
   className?: string;
 }) {
+  const { t } = useLocale();
+  const copy = vaultCopy(item, t);
   return (
     <button
       type="button"
       className={`vault-card ${className}`}
       onClick={() => onSelect(item)}
-      aria-label={`${item.title}, ${item.label}, ${item.status === "available" ? "$" + item.priceMinor / 100 : "coming soon"}`}
+      aria-label={`${copy.title}, ${copy.label}, ${item.status === "available" ? "$" + item.priceMinor / 100 : t.common.comingSoon}`}
     >
       <img src={item.artworkUrl} alt="" loading="lazy" />
       <span className="vault-shade" />
       <span className="vault-card-content">
-        <span className="eyebrow red-text">{item.label}</span>
-        <strong>{item.title}</strong>
+        <span className="eyebrow red-text">{copy.label}</span>
+        <strong>{copy.title}</strong>
         {item.type === "audio" && <Waveform bars={104} />}
         <span className="vault-card-footer">
-          <span>{item.description}</span>
+          <span>{copy.description}</span>
           {
             <span>
               <img src="/assets/lock.svg" alt="" width="12" height="12" /> $
               {item.priceMinor / 100} ·{" "}
-              {item.status === "available" ? "unlock" : "coming soon"}
+              {item.status === "available"
+                ? t.common.unlock
+                : t.common.comingSoon}
             </span>
           }
         </span>
@@ -47,20 +52,17 @@ export function VaultSection({
   items: VaultItem[];
   onSupport: (item: VaultItem) => void;
 }) {
+  const { t } = useLocale();
   const [archiveOpen, setArchiveOpen] = useState(false);
   return (
     <section className="vault-section" id="vault" aria-labelledby="vault-title">
       <div className="container">
         <div className="section-intro vault-intro reveal">
           <h2 id="vault-title" className="editorial-heading">
-            <span>THE</span>
-            <em>VAULT.</em>
+            <span>{t.vault.first}</span>
+            <em>{t.vault.second}</em>
           </h2>
-          <p>
-            Your support goes a long way. And for that you get to own a piece of
-            the process. These exclusive items are only available to you and
-            have not been seen by the world.
-          </p>
+          <p>{t.vault.intro}</p>
         </div>
         <div className="vault-grid reveal">
           {items.slice(0, 2).map((item) => (
@@ -73,34 +75,29 @@ export function VaultSection({
           </div>
         </div>
         <div className="vault-tail">
-          <p>
-            + 14 more in the archive · stems, lyric sheets, alternate versions,
-            limited merch
-          </p>
+          <p>{t.vault.tail}</p>
           <button
             className="button button--outline"
             type="button"
             onClick={() => setArchiveOpen(true)}
           >
-            See the rest of the vault.
+            {t.vault.rest}
           </button>
         </div>
       </div>
       {archiveOpen && (
         <Dialog
-          title="The Vault archive"
+          title={t.vault.archive}
           onClose={() => setArchiveOpen(false)}
           className="archive-dialog"
         >
-          <p className="eyebrow red-text">THE VAULT</p>
-          <h2 className="display-heading">
-            MORE IS <em>COMING.</em>
-          </h2>
-          <p>
-            The remaining archive items are being prepared. The four pieces
-            shown on this page are previews; access and fulfillment will open
-            when secure checkout is ready.
+          <p className="eyebrow red-text">
+            {t.vault.first} {t.vault.second}
           </p>
+          <h2 className="display-heading">
+            {t.vault.more} <em>{t.vault.coming}</em>
+          </h2>
+          <p>{t.vault.preparing}</p>
         </Dialog>
       )}
     </section>

@@ -1,6 +1,6 @@
 # Provider test-mode acceptance record (owner to execute)
 
-Status: **CONFIGURATION REQUIRED**, not verified in provider test mode. Record date/project/environment and redacted evidence here after setup. Never attach keys, full contact lists, payment details, signed download links, or access tokens.
+This is the original owner acceptance procedure. The [October 27 audit](../PHASE_1_AUDIT.md) records the current scenario-by-scenario evidence: one real paid-item flow is verified, while provider tip/replay/refund/async tests and Resend delivery remain open. Execute new provider actions only with explicit authorization. Never attach keys, full contact lists, payment details, signed download links, or access tokens.
 
 1. Open `/?utm_source=instagram&utm_medium=reel&utm_campaign=accion&utm_content=creative_a`. Browser stores bounded context and removes query parameters before measurement.
 2. Join via email with optional marketing permission. Check one normalized fan, first/last touch, capture event, pending permission, real free file, accepted email. Confirm the inbox link/button; check granted permission and one welcome job.

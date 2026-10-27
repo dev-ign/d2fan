@@ -20,6 +20,7 @@ import {
   contactLimit,
 } from "./platform.ts";
 import type { CheckoutStatus } from "../../shared/contracts.ts";
+import { authorizePaymentTest, testItemSlug } from "./payment-test.ts";
 
 export async function captureFan(_req: Request, b: Record<string, unknown>) {
   const email = normalizeEmail(b.email);
@@ -117,9 +118,15 @@ export async function createCheckout(
   )
     throw new Error("invalid_request");
   const item = catalog.vault.find((v) => v.slug === b.itemSlug);
+  const testing = b.operatorTestToken !== undefined;
+  if (testing) {
+    await authorizePaymentTest(_req, b.operatorTestToken);
+    if (b.purpose !== "vault_unlock" || item?.slug !== testItemSlug)
+      throw new Error("unavailable_item");
+  }
   const amount = b.purpose === "tip" ? b.amountMinor : item?.priceMinor;
   if (b.purpose === "vault_unlock") {
-    if (!item || item.availability !== "available")
+    if (!item || (item.availability !== "available" && !testing))
       throw new Error("unavailable_item");
     await signedFile(item.slug); // Never take payment for a missing file.
   }
@@ -168,12 +175,17 @@ export async function createCheckout(
     throw new Error("request_conflict");
   const issued = Math.floor(new Date(attempt.created_at).getTime() / 1000);
   const statusToken = await token("status", attempt.id, 7 * 86400, issued);
+  if (
+    testing &&
+    attempt.stripe_session_id &&
+    !attempt.stripe_session_id.startsWith("cs_test_")
+  )
+    throw new Error("unauthorized");
   const session = attempt.checkout_url
     ? { id: attempt.stripe_session_id, url: attempt.checkout_url }
     : await stripe().checkout.sessions.create(
         {
           mode: "payment",
-          payment_method_types: ["card"],
           customer_email: fan.email_normalized,
           client_reference_id: attempt.id,
           line_items: [
@@ -185,7 +197,9 @@ export async function createCheckout(
                   name:
                     b.purpose === "tip"
                       ? "Support Jona Ferreira"
-                      : `Vault: ${item?.slug}`,
+                      : item?.slug === testItemSlug
+                        ? "Acción — Hi-Res Artwork & Wallpapers"
+                        : `Vault: ${item?.slug}`,
                 },
               },
               quantity: 1,
@@ -194,9 +208,19 @@ export async function createCheckout(
           success_url: `${site()}/?checkout=return#status=${encodeURIComponent(statusToken)}`,
           cancel_url: `${site()}/?checkout=cancel#status=${encodeURIComponent(statusToken)}`,
           expires_at: Math.floor(new Date(attempt.expires_at).getTime() / 1000),
-          metadata: { attempt_id: attempt.id, artist_id: catalog.artistId },
+          metadata: {
+            attempt_id: attempt.id,
+            artist_id: catalog.artistId,
+            fan_id: claims.sub,
+            item_slug: item?.slug ?? "",
+            ...(testing ? { test_flow: "accion-operator" } : {}),
+          },
           payment_intent_data: {
-            metadata: { attempt_id: attempt.id, artist_id: catalog.artistId },
+            metadata: {
+              attempt_id: attempt.id,
+              artist_id: catalog.artistId,
+              ...(testing ? { test_flow: "accion-operator" } : {}),
+            },
           },
         },
         { idempotencyKey: `checkout:${attempt.id}` },
@@ -299,7 +323,13 @@ export async function redeemVault(_req: Request, b: Record<string, unknown>) {
   if (!u) throw new Error("unauthorized");
   return {
     links: [
-      { title: p.vault_item_slug, url: await signedFile(p.vault_item_slug) },
+      {
+        title:
+          p.vault_item_slug === testItemSlug
+            ? "Acción package"
+            : p.vault_item_slug,
+        url: await signedFile(p.vault_item_slug),
+      },
     ],
   };
 }

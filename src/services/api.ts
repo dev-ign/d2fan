@@ -3,8 +3,9 @@ import type { ServiceResult } from "../../supabase/shared/contracts";
 export async function api<T>(
   name: string,
   body: object,
+  base = runtime.api,
 ): Promise<ServiceResult<T>> {
-  if (!runtime.api)
+  if (!base)
     return {
       success: false,
       error: {
@@ -14,7 +15,7 @@ export async function api<T>(
       },
     };
   try {
-    const response = await fetch(`${runtime.api}/${name}`, {
+    const response = await fetch(`${base}/${name}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

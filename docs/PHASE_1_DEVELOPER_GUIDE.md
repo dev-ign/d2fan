@@ -7,7 +7,7 @@ Start with `docs/integrations/SETUP_GUIDE.md`. No provider credentials or licens
 - Add releases in `src/data/content.ts`, including slug, date, public art, preview and verified streaming URLs. `ContentRepository` powers Music, Hero, release routes and the global audio player. Do not import fixtures from feature components. Unsupported platform URLs are omitted; existing social search links remain labeled as searches until the owner supplies verified profiles.
 - Public Vault metadata also lives in that file; prices, availability, support presets/min/max and canonical artist ID live in **one** `supabase/shared/catalog.json`, imported by browser and Edge Functions. No component accepts a price as payment authority.
 - Add a matching catalog row and visual metadata for a new item. Private content paths belong only in `PRIVATE_FILE_PATHS`. Upload real licensed files to `vault-private`; test delivery before switching availability to `available` and deploying both sides.
-- New UI translations: `src/config/messages.ts`. Editable bilingual email content: `supabase/functions/_shared/templates.ts`. Reminder logic: `schedule_reminders()` plus the worker. No broadcast builder exists.
+- New UI translations: `src/config/messages.ts` and `src/i18n/site.ts`, owned by `LocaleProvider`. Editable bilingual email content: `supabase/functions/_shared/templates.ts`. Reminder logic: `schedule_reminders()` plus the worker. No broadcast builder exists. See [the current audit](PHASE_1_AUDIT.md) before activating delivery: six attempts do not enforce an absolute 24-hour retry deadline, and old jobs can contain expired links.
 
 ## API and payment flow
 
@@ -61,7 +61,7 @@ npm run test:e2e
 npm run qa:visual
 ```
 
-`test:db` uses PGlite (embedded PostgreSQL) to execute the migration and negative role/RPC checks; pgcrypto/storage infrastructure is substituted in that test. It does not certify hosted Supabase storage or a real provider. `test:edge` typechecks all functions and checks capabilities/input/origin/worker authorization/forged signatures. Browser payment/capture cases use explicit provider stubs; separate provider test-mode validation is mandatory. CI runs these without production secrets. No frontend Supabase or Stripe SDK was added.
+`test:db` uses PGlite (embedded PostgreSQL) to execute migrations and negative role/RPC checks, followed by eight real multi-session concurrency scenarios in a disposable local PostgreSQL cluster. Set `PHASE1_POSTGRES_BIN` to a working PostgreSQL bin directory if needed. The embedded portion substitutes pgcrypto/storage infrastructure. It does not certify hosted Supabase storage or a real provider. `test:edge` typechecks all functions and checks capabilities/input/origin/worker authorization/forged signatures. Browser payment/capture cases use explicit provider stubs; separate provider test-mode validation is mandatory. `npm run test:payments` runs the additional mock browser suite. CI runs without production secrets. No frontend Supabase or Stripe SDK was added.
 
 ## Rollback
 

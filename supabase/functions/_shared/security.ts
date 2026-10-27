@@ -1,6 +1,7 @@
 export interface Claims {
   actionId?: string;
   scope:
+    | "operator_test"
     | "reward"
     | "measurement"
     | "capture"

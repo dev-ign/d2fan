@@ -208,10 +208,7 @@ img {
   box-shadow: 0 30px 60px -10px #000b;
   backdrop-filter: blur(10px);
 }
-.player-popover > .eyebrow {
-  margin: 0 0 18px;
-  color: var(--bone-2);
-}
+
 .player-track {
   display: flex;
   align-items: center;
@@ -327,9 +324,7 @@ img {
   object-position: center 32%;
   transition: object-position var(--duration-cinematic);
 }
-.bio-photo > img.bio-photo--wide {
-  object-position: center 64%;
-}
+
 .bio-photo-controls {
   position: absolute;
   bottom: 18px;
@@ -466,8 +461,7 @@ img {
   margin: 20px 0;
   color: var(--bone-0);
 }
-.form-label input,
-.language-control select {
+.form-label input {
   min-width: 0;
   min-height: 44px;
   width: 100%;
@@ -480,16 +474,6 @@ img {
 }
 .form-label input[aria-invalid="true"] {
   border-color: var(--red-text);
-}
-.language-control {
-  display: flex !important;
-  align-items: center;
-  gap: 14px;
-  margin: 18px 0 !important;
-  color: var(--bone-soft) !important;
-}
-.language-control select {
-  width: auto;
 }
 .consent-control {
   display: flex !important;

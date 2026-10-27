@@ -1,3 +1,5 @@
+import { LocaleProvider } from "./LocaleProvider";
+import { useLocale } from "../hooks/useLocale";
 import { useEffect, useState } from "react";
 import {
   BrowserRouter,
@@ -22,6 +24,7 @@ import { VaultSection } from "../features/vault/VaultSection";
 import { StayClose } from "../features/stay-close/StayClose";
 import { localContentRepository } from "../repositories/localContentRepository";
 import { useSectionMotion } from "../hooks/useSectionMotion";
+import { useRouteScroll } from "../hooks/useRouteScroll";
 import type { Artist, MusicRelease, VaultItem } from "../domain/types";
 
 function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
@@ -44,24 +47,6 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
       live = false;
     };
   }, []);
-  useEffect(() => {
-    if (!content || !window.location.hash) return;
-    let live = true;
-    let frame = 0;
-    // Font metrics can change the sections above the target after initial render.
-    void document.fonts.ready.then(() => {
-      if (!live) return;
-      frame = requestAnimationFrame(() =>
-        document
-          .getElementById(window.location.hash.slice(1))
-          ?.scrollIntoView({ block: "start", behavior: "instant" }),
-      );
-    });
-    return () => {
-      live = false;
-      cancelAnimationFrame(frame);
-    };
-  }, [content]);
   return (
     <main
       ref={scope}
@@ -94,10 +79,9 @@ function AppShell() {
   const [resumeAmount, setResumeAmount] = useState<number>();
   const location = useLocation();
   const releaseRoute = useMatch("/music/:slug");
+  useRouteScroll();
+  const { t } = useLocale();
   useEffect(() => {
-    document.documentElement.dataset.experience =
-      location.pathname === "/" ? "home" : "release";
-    if (!location.hash) window.scrollTo({ top: 0, behavior: "instant" });
     attribution();
     if (window.location.search)
       history.replaceState(
@@ -106,22 +90,6 @@ function AppShell() {
         window.location.pathname + window.location.hash,
       );
     analytics.track("PageView");
-    let live = true;
-    let frame = 0;
-    if (["#music", "#vault", "#stay-close", "#top"].includes(location.hash)) {
-      void document.fonts.ready.then(() => {
-        if (!live) return;
-        frame = requestAnimationFrame(() =>
-          document
-            .getElementById(location.hash.slice(1))
-            ?.scrollIntoView({ block: "start" }),
-        );
-      });
-    }
-    return () => {
-      live = false;
-      cancelAnimationFrame(frame);
-    };
   }, [location.pathname, location.hash]);
   return (
     <>
@@ -146,11 +114,9 @@ function AppShell() {
           element={
             <main className="release-page">
               <div className="container">
-                <h1 className="display-heading">
-                  PAGE <em>NOT FOUND.</em>
-                </h1>
+                <h1 className="display-heading">{t.common.notFound}</h1>
                 <Link to="/" className="button button--outline">
-                  Go home
+                  {t.common.home}
                 </Link>
               </div>
             </main>
@@ -179,10 +145,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AudioProvider>
-        <AppShell />
-      </AudioProvider>
-    </BrowserRouter>
+    <LocaleProvider>
+      <BrowserRouter>
+        <AudioProvider>
+          <AppShell />
+        </AudioProvider>
+      </BrowserRouter>
+    </LocaleProvider>
   );
 }

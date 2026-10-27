@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog } from "./Dialog";
 import { catalog } from "../config/runtime";
-import { messages, suggestedLanguage } from "../config/messages";
+import { useLocale, vaultCopy } from "../hooks/useLocale";
 import type { VaultItem } from "../domain/types";
 import {
   amountFromInput,
@@ -12,6 +12,7 @@ import { fanService, checkoutService } from "../services/fan";
 import { attribution } from "../services/attribution";
 import { analytics } from "../services/analytics";
 import type { CheckoutResponse } from "../../supabase/shared/contracts";
+import { operatorTestToken, checkPaymentTest } from "../services/payment-test";
 
 export function SupportDialog({
   onClose,
@@ -27,7 +28,8 @@ export function SupportDialog({
     String((initialAmount ?? catalog.support.defaultMinor) / 100),
   );
   const [email, setEmail] = useState("");
-  const [language, setLanguage] = useState(suggestedLanguage);
+  const { locale: language, t } = useLocale();
+  const itemCopy = item ? vaultCopy(item, t) : undefined;
   const [optIn, setOptIn] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,24 @@ export function SupportDialog({
   const attemptId = useRef(crypto.randomUUID());
   const captureToken = useRef("");
   const busy = useRef(false);
-  const t = messages[language];
+  const [operatorToken] = useState(operatorTestToken);
+  const [testAuthorized, setTestAuthorized] = useState(false);
+  useEffect(() => {
+    if (item?.slug !== "accion-wallpaper" || !operatorToken) return;
+    let active = true;
+    void checkPaymentTest(operatorToken).then((result) => {
+      if (active)
+        setTestAuthorized(
+          result.success &&
+            result.data.itemSlug === item.slug &&
+            result.data.priceMinor === item.priceMinor &&
+            result.data.currency === item.currency,
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [item?.slug, item?.priceMinor, item?.currency, operatorToken]);
   const minor = item?.priceMinor ?? amountFromInput(amount);
   const valid = validAmount(
     minor,
@@ -58,7 +77,7 @@ export function SupportDialog({
     try {
       normalized = normalizeEmail(email);
     } catch {
-      setMessage(t.invalid);
+      setMessage("invalid");
       return;
     }
     busy.current = true;
@@ -66,17 +85,27 @@ export function SupportDialog({
     setMessage("");
     try {
       if (!captureToken.current) {
-        const result = await fanService.capture({
-          requestId: captureId.current,
-          email: normalized,
-          language,
-          source: "support_modal",
-          emailMarketing: optIn,
-          analyticsConsent: analytics.allowed(),
-          ...attribution(),
-        });
+        const result = await fanService.capture(
+          {
+            requestId: captureId.current,
+            email: normalized,
+            language,
+            source: "support_modal",
+            emailMarketing: testAuthorized ? false : optIn,
+            analyticsConsent: !testAuthorized && analytics.allowed(),
+            ...attribution(),
+            ...(testAuthorized
+              ? {
+                  operatorTestToken: operatorToken,
+                  firstTouch: { utm_source: "accion-operator-test" },
+                  lastTouch: { utm_source: "accion-operator-test" },
+                }
+              : {}),
+          },
+          testAuthorized,
+        );
         if (!result.success) {
-          setMessage(language === "es" ? t.requestError : result.error.message);
+          setMessage(result.error.message);
           return;
         }
         captureToken.current = result.data.captureToken;
@@ -90,10 +119,11 @@ export function SupportDialog({
         purpose: item ? "vault_unlock" : "tip",
         amountMinor: minor ?? undefined,
         itemSlug: item?.slug,
-        analyticsConsent: analytics.allowed(),
+        analyticsConsent: !testAuthorized && analytics.allowed(),
+        ...(testAuthorized ? { operatorTestToken: operatorToken } : {}),
       });
       if (!result.success) {
-        setMessage(language === "es" ? t.requestError : result.error.message);
+        setMessage(result.error.message);
         return;
       }
       try {
@@ -114,10 +144,13 @@ export function SupportDialog({
       setLoading(false);
     }
   }
-  const unavailable = item?.status !== undefined && item.status !== "available";
+  const unavailable =
+    item?.status !== undefined &&
+    item.status !== "available" &&
+    !testAuthorized;
   return (
     <Dialog
-      title="Support the journey"
+      title={t.supportUI.dialog}
       onClose={onClose}
       className="support-dialog support-flow-dialog"
       footer={
@@ -168,41 +201,25 @@ export function SupportDialog({
         </>
       }
     >
-      <p className="eyebrow red-text">
-        {item ? "THE VAULT" : "DIRECT ARTIST SUPPORT"}
-      </p>
       <h2 className="display-heading">
-        {item ? "THE" : "SUPPORT"} <em>{item ? "VAULT." : "JONA."}</em>
+        {item ? t.supportUI.vaultFirst : t.supportUI.first}{" "}
+        <em>{item ? t.supportUI.vaultSecond : t.supportUI.second}</em>
       </h2>
-      <p>{item?.title ?? t.support}</p>
-      <label className="language-control">
-        {t.language}
-        <select
-          value={language}
-          onChange={(e) => {
-            setLanguage(e.target.value as "en" | "es");
-            edited();
-          }}
-          disabled={loading}
-        >
-          <option value="en">English</option>
-          <option value="es">Español</option>
-        </select>
-      </label>
+      <p>{itemCopy?.title ?? t.support}</p>
+      {testAuthorized && <p role="status">{t.supportUI.operator}</p>}
       {unavailable ? (
         <p role="status">{t.unavailable}</p>
       ) : (
         <>
-          <p className="eyebrow" aria-live="polite">
-            {step} / 3 ·{" "}
-            {step === 1 ? t.amount : step === 2 ? t.contact : t.payment}
-          </p>
           {step === 1 && (
             <>
               {item ? (
-                <p className="purchase-amount">
-                  ${(item.priceMinor / 100).toFixed(2)} USD
-                </p>
+                <>
+                  <p>{itemCopy?.description}</p>
+                  <p className="purchase-amount">
+                    ${(item.priceMinor / 100).toFixed(2)} USD
+                  </p>
+                </>
               ) : (
                 <>
                   <fieldset className="amount-fieldset">
@@ -223,9 +240,7 @@ export function SupportDialog({
                     ))}
                   </fieldset>
                   <label className="form-label">
-                    {language === "es"
-                      ? "Otra cantidad (USD)"
-                      : "Custom amount (USD)"}
+                    {t.forms.custom}
                     <input
                       inputMode="decimal"
                       value={amount}
@@ -270,7 +285,7 @@ export function SupportDialog({
                   }}
                   disabled={loading}
                   aria-describedby="support-status"
-                  aria-invalid={message === t.invalid}
+                  aria-invalid={message === "invalid"}
                 />
               </label>
               <label className="consent-control">
@@ -281,7 +296,7 @@ export function SupportDialog({
                     setOptIn(e.target.checked);
                     edited();
                   }}
-                  disabled={loading}
+                  disabled={loading || testAuthorized}
                 />
                 {t.emailOptIn}
               </label>
@@ -292,7 +307,7 @@ export function SupportDialog({
             <>
               <p>
                 ${((minor ?? 0) / 100).toFixed(2)} USD ·{" "}
-                {item?.title ?? "Support Jona"}
+                {itemCopy?.title ?? t.supportUI.title}
               </p>
               <p>{t.saved}</p>
               <p className="fine-print">{item ? t.refund : t.tax}</p>
@@ -305,7 +320,13 @@ export function SupportDialog({
         className="form-status form-status--error"
         role="status"
       >
-        {message}
+        {message === "invalid"
+          ? t.invalid
+          : message
+            ? language === "es"
+              ? t.requestError
+              : message
+            : ""}
       </p>
     </Dialog>
   );

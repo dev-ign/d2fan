@@ -1,6 +1,8 @@
+import { useLocale } from "../../hooks/useLocale";
 import { FanCaptureForm } from "../fan-capture/FanCaptureForm";
 
 export function StayClose() {
+  const { t } = useLocale();
   return (
     <section
       className="stay-section"
@@ -10,26 +12,21 @@ export function StayClose() {
       <div className="container stay-content">
         <div className="section-intro stay-intro reveal">
           <h2 id="stay-title" className="editorial-heading">
-            <span>STAY</span>
-            <em>CLOSE.</em>
+            <span>{t.stay.first}</span>
+            <em>{t.stay.second}</em>
           </h2>
-          <p>
-            New music, unreleased drops, and a few things I don't share anywhere
-            else. Straight from me to you.
-          </p>
+          <p>{t.stay.intro}</p>
         </div>
         <p className="incentive">
-          <img src="/assets/gift.svg" alt="" width="24" height="24" /> Exclusive
-          Acción wallpaper when you join.
+          <img src="/assets/gift.svg" alt="" width="24" height="24" />{" "}
+          {t.stay.incentive}
         </p>
         <FanCaptureForm />
         <div className="reward-art" aria-hidden="true">
           <img src="/assets/raw-stay-1.webp" alt="" />
         </div>
         <footer className="site-footer">
-          <span className="sr-only">
-            Jona Ferreira — independent music, direct to you.
-          </span>
+          <span className="sr-only">{t.stay.footer}</span>
         </footer>
       </div>
     </section>

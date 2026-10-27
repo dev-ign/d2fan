@@ -1,14 +1,25 @@
+import type { SiteMessages } from "../../i18n/site";
+import { normalizeEmail } from "../../../supabase/shared/validation";
+import { useLocale, text, vaultCopy } from "../../hooks/useLocale";
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "../../components/Dialog";
 import { checkoutService, fanService, vaultService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
 import type { CheckoutStatus } from "../../../supabase/shared/contracts";
+import { vaultItems } from "../../data/content";
+import { runtime } from "../../config/runtime";
+type Feedback =
+  | { copy: keyof SiteMessages["transaction"] }
+  | { error: string }
+  | { invalid: true }
+  | null;
 type Mode = "reward" | "status" | "access" | "confirm" | "unsubscribe";
 export function TransactionExperience({
   onResume,
 }: {
   onResume: (amountMinor: number) => void;
 }) {
+  const { t, locale } = useLocale();
   const [context] = useState<{ mode: Mode; token: string } | null>(() => {
     const params = new URLSearchParams(location.hash.slice(1));
     for (const mode of [
@@ -52,10 +63,26 @@ export function TransactionExperience({
   const [open, setOpen] = useState(Boolean(context));
   const [recover, setRecover] = useState(false);
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<Feedback>(null);
   const [status, setStatus] = useState<CheckoutStatus>();
   const [links, setLinks] = useState<{ title: string; url: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [cancelled] = useState(
+    () => new URLSearchParams(location.search).get("checkout") === "cancel",
+  );
+  const displayMessage = !message
+    ? ""
+    : "copy" in message
+      ? t.transaction[message.copy]
+      : "invalid" in message
+        ? t.invalid
+        : locale === "es"
+          ? t.requestError
+          : message.error;
+  const purchasedItem = vaultItems.find(
+    (item) => item.slug === status?.itemSlug,
+  );
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -77,7 +104,7 @@ export function TransactionExperience({
       if (!live) return;
       if (result.success) {
         setStatus(result.data);
-        setMessage("");
+        setMessage(null);
         if (result.data.status === "completed" && result.data.eventId)
           analytics.track(
             "Purchase",
@@ -89,33 +116,53 @@ export function TransactionExperience({
           );
         if (
           ["draft", "pending_payment"].includes(result.data.status) &&
-          ++polls < 20
+          ++polls < 12
         )
           timeout = setTimeout(() => void check(), 3000);
-      } else setMessage(result.error.message);
+      } else setMessage({ error: result.error.message });
     }
     void check();
     return () => {
       live = false;
       clearTimeout(timeout);
     };
-  }, [context, open]);
+  }, [context, open, refresh]);
   async function redeem() {
     if (busy) return;
     setBusy(true);
+    // Refresh the short-lived access token before minting another five-minute URL.
+    let accessToken = status?.accessToken ?? "";
+    if (context?.mode === "status") {
+      const current = await checkoutService.status(context.token);
+      if (
+        !current.success ||
+        current.data.status !== "completed" ||
+        !current.data.accessToken
+      ) {
+        if (mounted.current) {
+          setLinks([]);
+          setMessage(
+            current.success
+              ? { copy: "unavailable" }
+              : { error: current.error.message },
+          );
+          setBusy(false);
+        }
+        return;
+      }
+      accessToken = current.data.accessToken;
+    }
     const result =
       context?.mode === "reward"
         ? await vaultService.reward(context.token)
         : await vaultService.redeem(
-            context?.mode === "access"
-              ? context.token
-              : (status?.accessToken ?? ""),
+            context?.mode === "access" ? context.token : accessToken,
           );
     if (mounted.current) {
       if (result.success) {
         setLinks(result.data.links);
-        setMessage("Your private download is ready for five minutes.");
-      } else setMessage(result.error.message);
+        setMessage({ copy: "ready" });
+      } else setMessage({ error: result.error.message });
       setBusy(false);
     }
   }
@@ -124,15 +171,27 @@ export function TransactionExperience({
   ) {
     setBusy(true);
     const result = await vaultService.consent(context!.token, mode);
-    setMessage(result.success ? result.data.message : result.error.message);
+    setMessage(
+      result.success
+        ? { copy: mode === "confirm" ? "consentConfirmed" : "unsubscribed" }
+        : { error: result.error.message },
+    );
     setBusy(false);
   }
   async function recovery(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
+    try {
+      normalizeEmail(email);
+    } catch {
+      setMessage({ invalid: true });
+      return;
+    }
     setBusy(true);
     const result = await fanService.recover(email);
-    setMessage(result.success ? result.data.message : result.error.message);
+    setMessage(
+      result.success ? { copy: "recovered" } : { error: result.error.message },
+    );
     setBusy(false);
   }
   return (
@@ -142,14 +201,14 @@ export function TransactionExperience({
         type="button"
         onClick={() => {
           setRecover(true);
-          setMessage("");
+          setMessage(null);
         }}
       >
-        Already purchased? Recover access
+        {t.transaction.recover}
       </button>
       {open && context && (
         <Dialog
-          title="Your purchase and access"
+          title={t.transaction.dialog}
           onClose={() => {
             setOpen(false);
             try {
@@ -160,30 +219,45 @@ export function TransactionExperience({
           }}
           className="support-dialog"
         >
-          <p className="eyebrow red-text">DIRECT FROM JONA</p>
+          <p className="eyebrow red-text">{t.transaction.direct}</p>
           <h2 className="display-heading">
-            STAY <em>CLOSE.</em>
+            {t.transaction.first} <em>{t.transaction.second}</em>
           </h2>
           {context.mode === "status" && (
             <>
               <p role="status">
                 {!status
-                  ? "Verifying your payment…"
+                  ? t.transaction.verifying
                   : status.status === "completed"
-                    ? "Payment confirmed. Thank you for supporting Jona."
+                    ? t.transaction.confirmed
                     : status.status === "refunded"
-                      ? "This payment was refunded."
+                      ? t.transaction.refunded
                       : status.status === "expired"
-                        ? "This checkout expired. Start a new checkout whenever you’re ready."
+                        ? t.transaction.expired
                         : status.status === "failed"
-                          ? "Payment could not be completed. You can try again."
-                          : "Payment is pending. You can close this window and recover access by email after payment is confirmed."}
+                          ? t.transaction.failed
+                          : cancelled
+                            ? t.transaction.canceled
+                            : t.transaction.waiting}
               </p>
+              {purchasedItem && <p>{vaultCopy(purchasedItem, t).title}</p>}
+              {(!status ||
+                ["draft", "pending_payment"].includes(status.status)) && (
+                <button
+                  className="button button--outline"
+                  type="button"
+                  onClick={() => setRefresh((value) => value + 1)}
+                >
+                  {t.transaction.check}
+                </button>
+              )}
               {status?.status === "completed" && (
                 <p>
-                  {status.delivery === "sent"
-                    ? "The provider accepted your access email."
-                    : "Your receipt/access email is queued. Your confirmed purchase stays saved if delivery needs a retry."}
+                  {runtime.paymentTestApi
+                    ? t.transaction.testSaved
+                    : status.delivery === "sent"
+                      ? t.transaction.sent
+                      : t.transaction.queued}
                 </p>
               )}
             </>
@@ -205,12 +279,12 @@ export function TransactionExperience({
                   onResume(status.amountMinor);
                 }}
               >
-                START A NEW CHECKOUT
+                {t.transaction.restart}
               </button>
             )}
           {status?.checkoutUrl && (
             <a className="button button--lime" href={status.checkoutUrl}>
-              RESUME SECURE PAYMENT
+              {t.transaction.resume}
             </a>
           )}
           {(context.mode === "access" ||
@@ -222,7 +296,7 @@ export function TransactionExperience({
               onClick={() => void redeem()}
               disabled={busy}
             >
-              {busy ? "CHECKING…" : "OPEN MY DOWNLOAD"}
+              {busy ? t.transaction.checking : t.transaction.open}
             </button>
           )}
           {(context.mode === "confirm" || context.mode === "unsubscribe") && (
@@ -235,8 +309,8 @@ export function TransactionExperience({
               }
             >
               {context.mode === "confirm"
-                ? "CONFIRM MUSIC UPDATES"
-                : "UNSUBSCRIBE"}
+                ? t.transaction.confirm
+                : t.transaction.unsubscribe}
             </button>
           )}
           {links.map((link) => (
@@ -246,29 +320,26 @@ export function TransactionExperience({
                 href={link.url}
                 rel="noreferrer"
               >
-                Download {link.title}
+                {text(t.transaction.download, { title: link.title })}
               </a>
             </p>
           ))}
-          <p role="status">{message}</p>
+          <p role="status">{displayMessage}</p>
         </Dialog>
       )}
       {recover && (
         <Dialog
-          title="Recover your Vault access"
+          title={t.transaction.recoverTitle}
           onClose={() => setRecover(false)}
           className="support-dialog"
         >
           <h2 className="editorial-heading">
-            YOUR <em>VAULT.</em>
+            {t.transaction.your} <em>{t.transaction.vault}</em>
           </h2>
-          <p>
-            Enter the email used at checkout. We’ll send fresh access links to
-            that inbox.
-          </p>
-          <form onSubmit={(e) => void recovery(e)}>
+          <p>{t.transaction.instructions}</p>
+          <form onSubmit={(e) => void recovery(e)} noValidate>
             <label className="form-label">
-              Purchase email
+              {t.transaction.email}
               <input
                 type="email"
                 required
@@ -282,10 +353,10 @@ export function TransactionExperience({
               type="submit"
               disabled={busy}
             >
-              {busy ? "SENDING…" : "SEND ACCESS EMAIL"}
+              {busy ? t.transaction.sending : t.transaction.send}
             </button>
           </form>
-          <p role="status">{message}</p>
+          <p role="status">{displayMessage}</p>
         </Dialog>
       )}
     </>

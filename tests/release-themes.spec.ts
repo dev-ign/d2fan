@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 const output = "artifacts/qa-release-themes";
 const covers = {

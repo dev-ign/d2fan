@@ -1,3 +1,4 @@
+import { useLocale } from "../hooks/useLocale";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
@@ -6,12 +7,15 @@ import { Dialog } from "./Dialog";
 import { navigation } from "../config/navigation";
 
 export function NavigationMenu({
+  activeSection,
   onClose,
   onSupport,
 }: {
+  activeSection: string;
   onClose: () => void;
   onSupport: () => void;
 }) {
+  const { t } = useLocale();
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     if (!closing) return;
@@ -23,20 +27,25 @@ export function NavigationMenu({
   }, [closing, onClose]);
   return (
     <Dialog
-      title="Site navigation"
+      title={t.nav.site}
       id="site-menu"
-      closeLabel="Close menu"
+      closeLabel={t.nav.closeMenu}
       onClose={() => setClosing(true)}
       className={`navigation-menu${closing ? " navigation-menu--closing" : ""}`}
     >
       <p className="eyebrow">JONA FERREIRA</p>
-      <nav aria-label="Main navigation">
-        {navigation.map(({ label, id }, index) => (
-          <Link key={id} to={`/#${id}`} onClick={onClose}>
+      <nav aria-label={t.nav.main}>
+        {navigation.map(({ id }, index) => (
+          <Link
+            key={id}
+            to={`/#${id}`}
+            onClick={onClose}
+            aria-current={activeSection === id ? "location" : undefined}
+          >
             <span className="menu-index" aria-hidden="true">
               0{index + 1}
             </span>
-            <span>{label}</span>
+            <span>{t.nav.sections[id]}</span>
             <ArrowUpRight size={22} aria-hidden="true" />
           </Link>
         ))}
@@ -48,10 +57,10 @@ export function NavigationMenu({
             onSupport();
           }}
         >
-          SUPPORT THE JOURNEY
+          {t.nav.support}
         </button>
       </nav>
-      <p className="menu-note">Independent music. Direct to you.</p>
+      <p className="menu-note">{t.nav.note}</p>
     </Dialog>
   );
 }

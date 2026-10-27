@@ -1,6 +1,6 @@
 # Connect your Phase 1 services
 
-**Current status: CONFIGURATION REQUIRED.** No accounts were connected, no live payments activated, and no production deployment performed. The master prompt overrides the earlier checklist. Local code/tests do not establish provider test-mode success.
+**Original implementation checklist, retained for setup.** Some account connections and sandbox validation below have since been completed. Use the [October 27, 2026 audit](../PHASE_1_AUDIT.md) for current evidence and remaining actions. Local code/tests do not establish provider test-mode success. No live payment activation is authorized by this guide.
 
 ## What you need to provide
 

@@ -84,9 +84,12 @@ export const analytics = {
     id: string = crypto.randomUUID(),
   ) {
     if (
+      runtime.paymentTestApi ||
       !consent ||
       Boolean(location.search) ||
-      /(?:reward|status|access|confirm|unsubscribe)=/.test(location.hash)
+      /(?:reward|status|access|confirm|unsubscribe|vault-test)=/.test(
+        location.hash,
+      )
     )
       return;
     const data: Record<string, string | number> = {};

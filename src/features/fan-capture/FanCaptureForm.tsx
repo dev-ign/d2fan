@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Download } from "lucide-react";
 import type { CaptureResponse } from "../../../supabase/shared/contracts";
 import { normalizeEmail } from "../../../supabase/shared/validation";
-import { messages, suggestedLanguage } from "../../config/messages";
+import { useLocale } from "../../hooks/useLocale";
 import { fanService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
 import { attribution } from "../../services/attribution";
@@ -10,7 +10,7 @@ import { attribution } from "../../services/attribution";
 /** The existing capture contract, shared by the invitation and release pages. */
 export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
   const [email, setEmail] = useState("");
-  const [language, setLanguage] = useState(suggestedLanguage);
+  const { locale: language, t } = useLocale();
   const [optIn, setOptIn] = useState(false);
   const [state, setState] = useState<
     "idle" | "invalid" | "loading" | "error" | "success"
@@ -19,8 +19,8 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
   const [capture, setCapture] = useState<CaptureResponse | null>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const request = useRef(crypto.randomUUID());
+  const requestLocale = useRef(language);
   const busy = useRef(false);
-  const t = messages[language];
   const emailId = compact ? "release-email" : "email";
   const statusId = `${emailId}-status`;
   const titleId = compact
@@ -50,12 +50,16 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy.current) return;
+    if (requestLocale.current !== language) {
+      request.current = crypto.randomUUID();
+      requestLocale.current = language;
+    }
     let normalized: string;
     try {
       normalized = normalizeEmail(email);
     } catch {
       setState("invalid");
-      setMessage(t.invalid);
+      setMessage("");
       return;
     }
     busy.current = true;
@@ -80,7 +84,7 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
         analytics.track("Lead", {}, result.data.eventId);
       } else {
         setState("error");
-        setMessage(language === "es" ? t.requestError : result.error.message);
+        setMessage(result.error.message);
       }
     } finally {
       busy.current = false;
@@ -137,14 +141,14 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
           aria-busy={state === "loading"}
         >
           <label className="eyebrow capture-label" htmlFor={emailId}>
-            {language === "en" ? "YOUR EMAIL" : "TU CORREO"}
+            {t.forms.emailLabel}
           </label>
           <div className="capture-input-group">
             <input
               id={emailId}
               type="email"
               autoComplete="email"
-              placeholder="you@email.com"
+              placeholder={t.forms.placeholder}
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
@@ -159,39 +163,24 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
               type="submit"
               disabled={state === "loading"}
             >
-              {state === "loading" ? t.saving : "JOIN LA CULTURA"}
+              {state === "loading" ? t.saving : t.forms.join}
             </button>
           </div>
-          <div className="capture-options">
-            {!compact && (
+          {!compact && (
+            <div className="capture-options">
               <fieldset className="channel-control">
-                <legend className="sr-only">Delivery channel</legend>
+                <legend className="sr-only">{t.forms.channel}</legend>
                 <label>
                   <input type="radio" name="channel" checked readOnly />
-                  Email
+                  {t.forms.email}
                 </label>
                 <label>
                   <input type="radio" name="channel" disabled />
-                  WhatsApp · coming soon
+                  {t.forms.whatsapp}
                 </label>
               </fieldset>
-            )}
-            <label className="language-control">
-              {t.language}
-              <select
-                aria-label={t.language}
-                value={language}
-                onChange={(event) => {
-                  setLanguage(event.target.value as "en" | "es");
-                  edited();
-                }}
-                disabled={state === "loading"}
-              >
-                <option value="en">English</option>
-                <option value="es">Español</option>
-              </select>
-            </label>
-          </div>
+            </div>
+          )}
           <label className="consent-control">
             <input
               type="checkbox"
@@ -209,7 +198,13 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
             className={`form-status${state === "error" || state === "invalid" ? " form-status--error" : ""}`}
             role="status"
           >
-            {message}
+            {state === "invalid"
+              ? t.invalid
+              : message
+                ? language === "es"
+                  ? t.requestError
+                  : message
+                : ""}
           </p>
         </form>
       )}

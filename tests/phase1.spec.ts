@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 import { expectResponsiveLayout } from "./helpers/responsive-layout";
 const capture = {
@@ -103,10 +103,11 @@ test("capture loading and accepted mocked response, language, opt in and disable
   await page.locator("#stay-close").scrollIntoViewIfNeeded();
   const form = page.locator(".stay-form");
   await expect(form.getByRole("radio", { name: /WhatsApp/ })).toBeDisabled();
-  await form.getByLabel("Language").selectOption("es");
+  await page.getByRole("button", { name: "Change language" }).click();
+  await page.getByRole("menuitemradio", { name: /ES/ }).click();
   await form.getByLabel("TU CORREO").fill("fan@example.com");
   await form.getByRole("checkbox").check();
-  await form.getByRole("button", { name: "JOIN LA CULTURA" }).click();
+  await form.getByRole("button", { name: "ÚNETE A LA CULTURA" }).click();
   await expect(form.getByRole("button", { name: "GUARDANDO…" })).toBeDisabled();
   await expect(
     page.getByRole("link", { name: "Descargar wallpaper de Acción" }),

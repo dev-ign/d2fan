@@ -1,14 +1,8 @@
-import type { Language } from "../../supabase/shared/contracts";
-export function suggestedLanguage(): Language {
-  return navigator.language.toLowerCase().startsWith("es") ? "es" : "en";
-}
-export const messages = {
+import { english, spanish } from "../i18n/site";
+const formMessages = {
   en: {
     amount: "Choose an amount",
-    contact: "Your details",
-    payment: "Secure payment",
     email: "Your email",
-    language: "Language",
     emailOptIn:
       "Email me new music and updates. Confirm by email; unsubscribe anytime.",
     whatsapp: "WhatsApp delivery is being prepared. Choose email for now.",
@@ -41,10 +35,7 @@ export const messages = {
   },
   es: {
     amount: "Elige una cantidad",
-    contact: "Tus datos",
-    payment: "Pago seguro",
     email: "Tu correo",
-    language: "Idioma",
     emailOptIn:
       "Quiero recibir música y novedades por correo. Confirma por email; cancela cuando quieras.",
     whatsapp: "Estamos preparando WhatsApp. Por ahora, elige correo.",
@@ -75,3 +66,8 @@ export const messages = {
       "No se pudo completar. Tus datos siguen aquí; inténtalo otra vez.",
   },
 };
+
+export const messages = {
+  en: { ...formMessages.en, ...english },
+  es: { ...formMessages.es, ...spanish },
+} satisfies Record<"en" | "es", typeof formMessages.en & typeof english>;

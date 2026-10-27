@@ -1,3 +1,4 @@
+import { useLocale } from "../hooks/useLocale";
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -9,7 +10,7 @@ export function Dialog({
   children,
   className = "",
   footer,
-  closeLabel = "Close dialog",
+  closeLabel,
   id,
 }: {
   title: string;
@@ -20,6 +21,7 @@ export function Dialog({
   closeLabel?: string;
   id?: string;
 }) {
+  const { t } = useLocale();
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -79,7 +81,7 @@ export function Dialog({
           className="dialog-close icon-button"
           type="button"
           onClick={onClose}
-          aria-label={closeLabel}
+          aria-label={closeLabel ?? t.common.close}
         >
           <X size={24} />
         </button>

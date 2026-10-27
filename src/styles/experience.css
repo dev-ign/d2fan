@@ -82,9 +82,18 @@ html[data-experience="home"] {
   font: 500 13px/1 var(--font-body);
   white-space: nowrap;
   text-shadow: 0 1px 8px #0009;
+  text-underline-offset: 7px;
   transition: color var(--duration-feedback);
 }
-.site-nav a:hover,
+.site-nav a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.site-nav a:focus-visible {
+  outline: 2px solid var(--lime-support);
+  outline-offset: 5px;
+  border-radius: 2px;
+}
 .site-nav a.is-active {
   color: var(--lime-support);
 }
@@ -155,6 +164,10 @@ html[data-experience="home"] {
   transition: color var(--duration-feedback);
 }
 .navigation-menu nav > a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.navigation-menu nav > a[aria-current="location"] {
   color: var(--lime-support);
 }
 .navigation-menu nav > a > svg {
@@ -191,8 +204,11 @@ html[data-experience="home"] {
   }
 }
 
-/* One photograph and one continuous fade, ending in the next scene's ink. */
+/* Four restrained grades: global tint, navigation, editorial copy, floor. */
 .hero {
+  --hero-tint: rgb(0 0 0 / 22%);
+  --hero-focal-x: 32%;
+  --hero-focal-y: center;
   position: relative;
   isolation: isolate;
   display: grid;
@@ -202,64 +218,73 @@ html[data-experience="home"] {
   overflow: hidden;
   background: var(--ink-0);
 }
-.hero-image {
+.hero-media {
   position: absolute;
   z-index: -2;
+  inset: 0;
+  pointer-events: none;
+}
+.hero-poster,
+.hero-video {
+  position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   max-width: none;
   object-fit: cover;
-  object-position: 50% 12%;
+  object-position: var(--hero-focal-x) var(--hero-focal-y);
+}
+.hero-video {
+  opacity: 0;
+  transition: opacity 450ms ease;
+}
+.hero-video[data-playing="true"] {
+  opacity: 1;
 }
 .hero-fade {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    #0b0a0aa6 0%,
-    #0b0a0a08 24%,
-    #0b0a0a20 38%,
-    #0b0a0a70 55%,
-    #0b0a0ac4 73%,
-    #0b0a0af2 90%,
-    var(--ink-0) 100%
-  );
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / 68%) 0%, transparent 35%),
+    linear-gradient(90deg, transparent 28%, rgb(11 10 10 / 52%) 84%),
+    linear-gradient(
+      180deg,
+      transparent 52%,
+      rgb(11 10 10 / 30%) 76%,
+      var(--ink-0) 100%
+    ),
+    var(--hero-tint);
 }
 .hero-content {
   align-self: end;
-  width: min(760px, calc(100% - var(--gutter) * 2));
-  margin: 120px auto clamp(64px, 8svh, 96px);
-  text-align: center;
+  width: min(680px, 44%);
+  margin: clamp(96px, 14svh, 160px) max(var(--gutter), 6vw)
+    clamp(96px, 15svh, 164px) auto;
+  text-align: left;
 }
 .hero-content h1 {
   margin: 0;
-  font: 800 clamp(80px, 8.6vw, 132px)/0.84 var(--font-display);
-  overflow-wrap: anywhere;
+  font: 800 clamp(68px, 7.1vw, 128px)/0.9 var(--font-display);
+  letter-spacing: -0.012em;
+  white-space: nowrap;
 }
-.hero-content h1 span {
-  display: block;
-  margin-top: 14px;
-  font-size: 0.36em;
-  letter-spacing: 0.3em;
-  padding-left: 0.3em;
-  color: var(--bone-soft);
-}
+
 .hero-bio {
-  width: min(540px, 100%);
-  margin: 24px auto 0;
+  width: min(400px, 100%);
+  margin: 24px 0 0;
 }
 .hero-bio > p {
   margin: 0;
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.7;
   color: var(--bone-0);
 }
 .hero-read {
   width: 44px;
   height: 44px;
-  margin-top: 16px;
+  margin-top: 14px;
   border: 1px solid var(--line-glass);
   border-radius: 50%;
   background: #13111170;
@@ -273,7 +298,7 @@ html[data-experience="home"] {
 }
 .featured-card {
   position: absolute;
-  right: var(--gutter);
+  left: var(--gutter);
   bottom: 108px;
   display: flex;
   align-items: center;
@@ -441,17 +466,13 @@ html[data-experience="home"] {
   z-index: 12;
   width: 260px;
   padding-block: 4px;
+  padding-top: 6px;
   background: var(--ink-2);
   border: 1px solid var(--line-glass);
   border-radius: 12px;
   box-shadow: 0 16px 40px #0006;
 }
-.stream-menu > p {
-  margin: 0;
-  padding: 12px 16px;
-  color: var(--bone-1);
-  border-bottom: 1px solid var(--line-hairline);
-}
+
 .stream-menu a {
   display: flex;
   align-items: center;
@@ -830,16 +851,7 @@ html[data-experience="home"] {
 .capture-form .channel-control label {
   font-size: 11px;
 }
-.capture-form .language-control {
-  gap: 8px;
-  margin: 0 !important;
-  font-size: 11px;
-}
-.capture-form .language-control select {
-  min-height: 36px;
-  padding: 6px 24px 6px 8px;
-  font-size: 12px;
-}
+
 .capture-form .consent-control {
   margin: 16px 0 0 !important;
   font-size: 12px;
@@ -1044,10 +1056,7 @@ html[data-experience="home"] {
   padding-inline: 14px;
   font-size: 11px;
 }
-.capture-surface--compact .capture-options {
-  justify-content: flex-end;
-  margin-top: 10px;
-}
+
 .capture-surface--compact .consent-control {
   margin-top: 10px !important;
   font-size: 12px;
@@ -1096,14 +1105,19 @@ html[data-experience="home"] {
 }
 
 @media (min-width: 1100px) and (min-height: 800px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  html[data-experience="home"] {
+  html[data-experience="home"][data-scroll-ready="true"] {
     scroll-snap-type: y proximity;
   }
   .home-experience > section {
     scroll-snap-align: start;
     scroll-snap-stop: normal;
   }
-  html:has(.dialog-backdrop, input:focus, select:focus, textarea:focus) {
+  html[data-experience="home"]:has(
+      .dialog-backdrop,
+      input:focus,
+      select:focus,
+      textarea:focus
+    ) {
     scroll-snap-type: none;
   }
 }
@@ -1123,6 +1137,13 @@ html[data-experience="home"] {
   }
   .stay-content {
     column-gap: 40px;
+  }
+}
+/* Portrait tablets benefit from the same artist-first crop as phones. */
+@media (min-width: 761px) and (max-width: 960px) and (orientation: portrait) {
+  .hero {
+    --hero-focal-x: center;
+    --hero-focal-y: top;
   }
 }
 @media (max-width: 960px) {
@@ -1147,6 +1168,13 @@ html[data-experience="home"] {
   }
   .header-actions {
     gap: 8px;
+  }
+  .hero-content {
+    width: 46%;
+    margin-right: var(--gutter);
+  }
+  .hero-content h1 {
+    font-size: clamp(56px, 7.1vw, 68px);
   }
   .featured-card {
     width: 252px;
@@ -1236,25 +1264,37 @@ html[data-experience="home"] {
     width: auto;
   }
   .hero {
+    --hero-focal-x: center;
+    --hero-focal-y: top;
     grid-template-rows: 1fr auto auto;
   }
-  .hero-image {
-    object-position: 50% 0;
+  .hero-video[data-format="desktop"] {
+    object-position: 32% top;
+  }
+  .hero-fade {
+    background:
+      linear-gradient(180deg, rgb(0 0 0 / 65%) 0%, transparent 28%),
+      linear-gradient(
+        180deg,
+        transparent 30%,
+        rgb(11 10 10 / 64%) 62%,
+        rgb(11 10 10 / 84%) 84%,
+        var(--ink-0) 100%
+      ),
+      var(--hero-tint);
   }
   .hero-content {
     width: calc(100% - 40px);
     margin: clamp(140px, 20svh, 220px) auto 24px;
+    text-align: center;
   }
   .hero-content h1 {
-    font-size: clamp(48px, 14vw, 80px);
+    font-size: clamp(44px, 14vw, 80px);
   }
-  .hero-content h1 span {
-    margin-top: 10px;
-    font-size: 0.4em;
-  }
+
   .hero-bio {
     max-width: 350px;
-    margin-top: 20px;
+    margin: 20px auto 0;
   }
   .hero-bio > p {
     font-size: 13px;
@@ -1278,7 +1318,7 @@ html[data-experience="home"] {
   .social-inner {
     display: block;
     min-height: 96px;
-    padding: 16px 0;
+    padding: 16px 0 max(16px, env(safe-area-inset-bottom));
     text-align: center;
   }
   .social-inner > .eyebrow {
@@ -1444,9 +1484,7 @@ html[data-experience="home"] {
   .capture-surface--compact .capture-input-group {
     flex-direction: row;
   }
-  .capture-surface--compact .capture-options {
-    justify-content: start;
-  }
+
   .experience-footer {
     align-items: start;
     justify-content: center;
@@ -1497,6 +1535,10 @@ html[data-experience="home"] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .hero-video {
+    display: none;
+    transition: none;
+  }
   html {
     scroll-snap-type: none !important;
   }
@@ -1509,4 +1551,126 @@ html[data-experience="home"] {
   .featured-card {
     transition: none;
   }
+}
+
+/* One neutral globe; language selection lives inside its menu. */
+.language-anchor {
+  position: relative;
+  flex: none;
+}
+.language-trigger {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-control);
+  color: var(--bone-0);
+  background: transparent;
+}
+.language-trigger:hover,
+.language-trigger[aria-expanded="true"] {
+  color: var(--bone-0);
+  background: var(--state-hover);
+}
+.language-trigger:focus-visible {
+  outline: 2px solid var(--bone-0);
+  outline-offset: 2px;
+}
+.language-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 208px;
+  padding: 6px;
+  border: 1px solid var(--line-glass);
+  border-radius: 12px;
+  background: #131111fa;
+  box-shadow: 0 16px 40px #0006;
+  animation: menu-enter 180ms var(--ease-jona) both;
+}
+.language-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--bone-soft);
+  text-align: left;
+  font: 12px var(--font-body);
+  cursor: pointer;
+}
+.language-menu strong {
+  font: 12px var(--font-mono);
+  color: var(--bone-0);
+}
+.language-menu button:hover,
+.language-menu button:focus-visible {
+  background: var(--state-hover);
+  outline: 1px solid var(--line-control);
+}
+.language-menu button[aria-checked="true"] {
+  background: #adf1000c;
+}
+.language-menu button svg {
+  margin-left: auto;
+  color: var(--lime-support);
+}
+.bio-photo {
+  touch-action: pan-y;
+}
+.bio-photo > img {
+  position: absolute;
+  inset: 0;
+}
+.bio-photo > .bio-photo-current {
+  animation: bio-photo-enter 300ms ease both;
+}
+.bio-photo-controls {
+  z-index: 1;
+  border-radius: 8px;
+}
+.bio-copy .display-heading {
+  margin-top: 0;
+}
+@keyframes bio-photo-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.support-flow-dialog .display-heading {
+  font-size: clamp(40px, 6vw, 70px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  margin: 0 0 22px;
+}
+.support-flow-dialog .display-heading em {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
+}
+.support-flow-dialog .amount-fieldset {
+  margin-top: 28px;
+}
+@media (max-width: 360px) {
+  .header-actions {
+    gap: 4px;
+  }
+  .wordmark {
+    font-size: 21px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .language-menu,
+  .bio-photo > .bio-photo-current {
+    animation: none;
+  }
+}
+.dialog-scroll-body > .form-status:empty {
+  display: none;
 }

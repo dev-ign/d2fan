@@ -1,6 +1,8 @@
 # Dependencies, build output, and tool caches
 node_modules/
 dist/
+dist-ssr/
+/source-media/
 *.tsbuildinfo
 .cache/
 .vite/
@@ -10,19 +12,46 @@ dist/
 playwright-report/
 test-results/
 coverage/
-/docs/
+blob-report/
+/screenshots/
+/traces/
+
+# Disposable agent reports stay local; maintained Markdown remains in Git.
+/.agent-reports/
+/docs/_generated/
+/docs/_scratch/
+/docs/_local/
+/BILINGUAL_UI_REFINEMENT.md
+/HERO_CINEMATIC_V2.md
+/HERO_VIDEO_IMPLEMENTATION.md
+/PAYMENT_TESTING.md
 
 # Local environment and secrets (keep setup templates tracked)
 .env
 .env.*
 !.env.example
 !supabase/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+supabase/.env
 
 # Runtime logs and operating-system files
 *.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~

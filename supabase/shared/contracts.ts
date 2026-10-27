@@ -18,6 +18,7 @@ export type Attribution = Partial<
   >
 >;
 export interface CaptureRequest {
+  operatorTestToken?: string;
   requestId: string;
   email: string;
   language: Language;
@@ -35,6 +36,7 @@ export interface CaptureResponse {
   magnetUrl?: string;
 }
 export interface CheckoutRequest {
+  operatorTestToken?: string;
   requestId: string;
   captureToken: string;
   purpose: "tip" | "vault_unlock";

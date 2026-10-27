@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Ellipsis } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import type { Artist, MusicRelease } from "../../domain/types";
 import { Dialog } from "../../components/Dialog";
+import { BiographyGallery } from "./BiographyGallery";
+import { useLocale, text } from "../../hooks/useLocale";
+import { HeroVideo } from "./HeroVideo";
 
 export function Hero({
   artist,
@@ -12,32 +15,23 @@ export function Hero({
   featured: MusicRelease;
 }) {
   const [bioOpen, setBioOpen] = useState(false);
-  const [photo, setPhoto] = useState(0);
+  const { t } = useLocale();
   return (
     <>
       <section className="hero" id="top" aria-labelledby="hero-title">
-        <img
-          className="hero-image"
-          src={artist.heroImage}
-          alt="Jona Ferreira adjusting his sunglasses"
-          fetchPriority="high"
-          width="1024"
-          height="1536"
-        />
+        <HeroVideo />
         <div className="hero-fade" aria-hidden="true" />
         <div className="hero-content">
-          <h1 id="hero-title">
-            JONA FERREIRA<span>MUSIC</span>
-          </h1>
+          <h1 id="hero-title">JONA FERREIRA</h1>
           <div className="hero-bio">
-            <p>{artist.biography.short}</p>
+            <p>{t.hero.short}</p>
           </div>
           <button
             className="hero-read icon-button"
             type="button"
-            aria-label="Read artist biography"
+            aria-label={t.hero.readBio}
             aria-haspopup="dialog"
-            title="Read artist biography"
+            title={t.hero.readBio}
             onClick={() => setBioOpen(true)}
           >
             <Ellipsis size={22} aria-hidden="true" />
@@ -46,11 +40,11 @@ export function Hero({
         <Link
           className="featured-card"
           to={`/music/${featured.slug}`}
-          aria-label={`Latest release: ${featured.title}`}
+          aria-label={text(t.hero.latestLabel, { title: featured.title })}
         >
           <img src={featured.coverArt} alt="" width="64" height="64" />
           <span>
-            <small>LATEST RELEASE</small>
+            <small>{t.hero.latest}</small>
             <strong>{featured.title}</strong>
           </span>
           <img
@@ -65,48 +59,22 @@ export function Hero({
       </section>
       {bioOpen && (
         <Dialog
-          title="About Jona Ferreira"
+          title={t.hero.about}
           onClose={() => setBioOpen(false)}
           className="bio-dialog"
         >
-          <div className="bio-photo">
-            <img
-              className={photo === 1 ? "bio-photo--wide" : ""}
-              src={artist.heroImage}
-              alt="Jona Ferreira portrait"
-            />
-            <div className="bio-photo-controls">
-              <button
-                className="icon-button"
-                type="button"
-                aria-label="Previous portrait view"
-                onClick={() => setPhoto((photo + 1) % 2)}
-              >
-                <ArrowLeft />
-              </button>
-              <span>0{photo + 1} / 02</span>
-              <button
-                className="icon-button"
-                type="button"
-                aria-label="Next portrait view"
-                onClick={() => setPhoto((photo + 1) % 2)}
-              >
-                <ArrowRight />
-              </button>
-            </div>
-          </div>
+          <BiographyGallery portrait={artist.heroImage} />
           <div className="bio-copy">
-            <p className="eyebrow red-text">THE ARTIST</p>
             <h2 className="display-heading">
               JONA <em>FERREIRA.</em>
             </h2>
-            <p>{artist.biography.full}</p>
+            <p>{t.hero.full}</p>
             <a
               className="button button--outline"
               href="#music"
               onClick={() => setBioOpen(false)}
             >
-              EXPLORE THE MUSIC
+              {t.hero.explore}
             </a>
           </div>
         </Dialog>
@@ -149,10 +117,11 @@ const socials = [
 ];
 
 export function SocialStrip() {
+  const { t } = useLocale();
   return (
-    <aside className="social-strip" aria-label="Find Jona online">
+    <aside className="social-strip" aria-label={t.hero.socials}>
       <div className="container social-inner">
-        <span className="eyebrow">FOLLOW JONA EVERYWHERE</span>
+        <span className="eyebrow">{t.hero.follow}</span>
         <div>
           {socials.map((social) => (
             <a
@@ -162,8 +131,8 @@ export function SocialStrip() {
               rel="noopener noreferrer"
               aria-label={
                 social.searchable
-                  ? `Search for Jona Ferreira on ${social.label}`
-                  : `Jona Ferreira on ${social.label}`
+                  ? text(t.hero.socialSearch, { platform: social.label })
+                  : text(t.hero.socialArtist, { platform: social.label })
               }
             >
               <img src={social.icon} alt="" width="18" height="18" />

@@ -1,3 +1,4 @@
+import { useLocale, text, audioError } from "../../hooks/useLocale";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -20,6 +21,7 @@ import { useSectionMotion } from "../../hooks/useSectionMotion";
 import { analytics } from "../../services/analytics";
 
 export function ReleasePage() {
+  const { t, locale } = useLocale();
   const { slug } = useParams();
   const [release, setRelease] = useState<MusicRelease | null | undefined>(
     undefined,
@@ -43,13 +45,13 @@ export function ReleasePage() {
     return (
       <main className="release-page">
         <div className="container">
-          <p className="eyebrow">RELEASE NOT FOUND</p>
+          <p className="eyebrow">{t.release.missing}</p>
           <h1 className="display-heading">
-            NOT <em>HERE.</em>
+            {t.release.notFirst} <em>{t.release.notSecond}</em>
           </h1>
           <Link to="/" className="button button--outline">
             <ArrowLeft size={16} />
-            Back to music
+            {t.release.back}
           </Link>
         </div>
       </main>
@@ -70,7 +72,7 @@ export function ReleasePage() {
           <div className="release-artwork reveal">
             <img
               src={release.coverArt}
-              alt={`${release.title} cover art`}
+              alt={text(t.common.cover, { title: release.title })}
               width="640"
               height="640"
               fetchPriority="high"
@@ -82,16 +84,13 @@ export function ReleasePage() {
               {release.title}
             </h1>
             <p className="release-date">
-              Single ·{" "}
+              {t.common.single} ·{" "}
               {new Date(`${release.releaseDate}T12:00:00`).toLocaleString(
-                "en-US",
+                locale === "es" ? "es" : "en-US",
                 { month: "long", day: "numeric", year: "numeric" },
               )}
             </p>
-            <div
-              className="release-listening"
-              aria-label="Listen to this release"
-            >
+            <div className="release-listening" aria-label={t.release.listen}>
               <div className="release-page-actions">
                 {Object.entries(release.streamingLinks).map(
                   ([platform, url]) =>
@@ -136,17 +135,17 @@ export function ReleasePage() {
                     <Play size={18} />
                   )}
                   {loading
-                    ? "Loading preview"
+                    ? t.player.loading
                     : failed
-                      ? "Retry preview"
+                      ? t.player.retry
                       : playing
-                        ? "Pause preview"
-                        : "Play preview"}
+                        ? t.player.pause
+                        : t.player.play}
                 </button>
               </div>
               {current && audio.error && (
                 <p className="preview-error" role="alert">
-                  {audio.error}
+                  {audioError(audio.error, t)}
                 </p>
               )}
             </div>
@@ -156,9 +155,9 @@ export function ReleasePage() {
             >
               <div className="release-capture-intro">
                 <h2 id="release-capture-heading">
-                  Stay <em>close.</em>
+                  {t.release.stay} <em>{t.release.close}</em>
                 </h2>
-                <p>New music, exclusives, and a little more from me.</p>
+                <p>{t.release.invitation}</p>
               </div>
               <FanCaptureForm key={release.id} compact />
             </section>

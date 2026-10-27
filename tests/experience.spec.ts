@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 test.beforeEach(async ({ page }) => {
   await page.route("**/functions/v1/**", (route) =>
     route.fulfill({
@@ -26,7 +26,7 @@ test("biography, carousel, release route, and shared audio", async ({
     page.getByRole("dialog", { name: "About Jona Ferreira" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Next portrait view" }).click();
-  await expect(page.getByText("02 / 02")).toBeVisible();
+  await expect(page.getByText("02 / 05")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("dialog", { name: "About Jona Ferreira" }),

@@ -8,11 +8,13 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:payments": "node scripts/dev-payments.mjs",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:payments": "playwright test --config playwright.payment.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:db": "node supabase/tests/database.mjs",

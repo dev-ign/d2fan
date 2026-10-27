@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 
 test.beforeAll(async () => {
@@ -248,10 +248,11 @@ test("release capture preserves language, consent confirmation and backend signe
     });
   });
   await page.goto("/music/darte-nota");
-  await page.getByLabel("Language", { exact: true }).selectOption("es");
+  await page.getByRole("button", { name: "Change language" }).click();
+  await page.getByRole("menuitemradio", { name: /ES/ }).click();
   await page.getByLabel("TU CORREO").fill("fan@example.com");
   await page.locator(".capture-form").getByRole("checkbox").check();
-  await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
+  await page.getByRole("button", { name: "ÚNETE A LA CULTURA" }).click();
   const confirmation = page.getByRole("region", {
     name: "Ya eres parte de La Cultura.",
   });
