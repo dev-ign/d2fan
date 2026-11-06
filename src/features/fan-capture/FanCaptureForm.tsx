@@ -31,6 +31,18 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
     : compact
       ? ""
       : t.rewardUnavailable;
+  const confirmationMessage = capture
+    ? ({
+        queued: t.marketingConfirmation,
+        sent: t.marketingConfirmationAccepted,
+        failed: t.marketingConfirmationFailed,
+        quarantined: t.marketingConfirmationQuarantined,
+        skipped: t.marketingConfirmationSkipped,
+        disabled: t.marketingConfirmationDisabled,
+        not_configured: t.marketingConfirmationDisabled,
+        unknown: t.marketingConfirmationUnknown,
+      }[capture.delivery] ?? t.marketingConfirmationUnknown)
+    : "";
 
   useEffect(() => {
     if (state !== "success") return;
@@ -129,7 +141,7 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
               </div>
             )}
             <p className="stay-confirmation-consent">
-              {optIn ? t.marketingConfirmation : t.marketingNotRequested}
+              {optIn ? confirmationMessage : t.marketingNotRequested}
             </p>
           </div>
         </div>

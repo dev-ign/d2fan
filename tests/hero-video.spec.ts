@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 const output = "artifacts/qa-hero-v2/browser";
 test.beforeAll(async () => {
@@ -370,11 +371,29 @@ test("poster stays visible while video delivery is constrained, then playback in
 test("camera master cannot be fetched from the development server", async ({
   request,
 }) => {
-  for (const name of ["d2c-hero-video", "new-hero-video"]) {
-    const response = await request.get(`/source-media/${name}.mp4`, {
-      headers: { Range: "bytes=0-3" },
-    });
-    expect(response.status()).toBe(403);
+  // Ignored camera masters are absent in CI; missing files may return the SPA.
+  // An existing probe makes this exercise the deny rule on every checkout.
+  await mkdir("source-media", { recursive: true });
+  const directory = await mkdtemp("source-media/ci-access-");
+  const probe = `${directory}/camera-master.mp4`;
+  try {
+    await writeFile(probe, "private camera master access probe");
+    for (const url of [`/${probe}`, `/@fs/${resolve(probe)}`]) {
+      const response = await request.get(url, {
+        headers: { Range: "bytes=0-3" },
+      });
+      expect(response.status()).toBe(403);
+    }
+    for (const format of ["desktop", "mobile"]) {
+      const response = await request.get(`/assets/hero/bts-${format}.mp4`, {
+        headers: { Range: "bytes=0-3" },
+      });
+      expect(response.status()).toBe(206);
+      expect(response.headers()["content-type"]).toContain("video/mp4");
+      expect((await response.body()).length).toBe(4);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });
 

@@ -7,7 +7,6 @@ import { checkoutService, fanService, vaultService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
 import type { CheckoutStatus } from "../../../supabase/shared/contracts";
 import { vaultItems } from "../../data/content";
-import { runtime } from "../../config/runtime";
 type Feedback =
   | { copy: keyof SiteMessages["transaction"] }
   | { error: string }
@@ -83,6 +82,17 @@ export function TransactionExperience({
   const purchasedItem = vaultItems.find(
     (item) => item.slug === status?.itemSlug,
   );
+  const deliveryMessage = status
+    ? ({
+        disabled: t.transaction.deliveryDisabled,
+        queued: t.transaction.queued,
+        sent: t.transaction.sent,
+        failed: t.transaction.deliveryFailed,
+        quarantined: t.transaction.deliveryQuarantined,
+        skipped: t.transaction.deliverySkipped,
+        unknown: t.transaction.deliveryUnknown,
+      }[status.delivery] ?? t.transaction.deliveryUnknown)
+    : "";
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -190,7 +200,16 @@ export function TransactionExperience({
     setBusy(true);
     const result = await fanService.recover(email);
     setMessage(
-      result.success ? { copy: "recovered" } : { error: result.error.message },
+      result.success
+        ? {
+            copy:
+              result.data.delivery === "disabled"
+                ? "recoveryDisabled"
+                : result.data.delivery === "requested"
+                  ? "recovered"
+                  : "recoveryUnknown",
+          }
+        : { error: result.error.message },
     );
     setBusy(false);
   }
@@ -251,15 +270,7 @@ export function TransactionExperience({
                   {t.transaction.check}
                 </button>
               )}
-              {status?.status === "completed" && (
-                <p>
-                  {runtime.paymentTestApi
-                    ? t.transaction.testSaved
-                    : status.delivery === "sent"
-                      ? t.transaction.sent
-                      : t.transaction.queued}
-                </p>
-              )}
+              {status?.status === "completed" && <p>{deliveryMessage}</p>}
             </>
           )}
           {context.mode === "status" &&

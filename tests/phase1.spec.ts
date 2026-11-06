@@ -190,10 +190,109 @@ test("network failure keeps input and expired/invalid recovery is honest", async
     .getByRole("button", { name: "Already purchased? Recover access" })
     .click();
   await page.getByLabel("Purchase email").fill("fan@example.com");
-  await page.getByRole("button", { name: "SEND ACCESS EMAIL" }).click();
+  await page.getByRole("button", { name: "REQUEST ACCESS LINKS" }).click();
   await expect(page.getByLabel("Purchase email")).toHaveValue(
     "fan@example.com",
   );
+});
+test("email delivery states stay distinct while paid download access remains available", async ({
+  page,
+}) => {
+  let delivery = "disabled";
+  await page.route("**/functions/v1/**", (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          status: "completed",
+          amountMinor: 500,
+          currency: "usd",
+          purpose: "vault_unlock",
+          delivery,
+          accessToken: "scoped-access",
+        },
+      },
+    }),
+  );
+  for (const [state, message] of [
+    ["disabled", "Email delivery is currently disabled."],
+    ["queued", "Your receipt/access email is queued."],
+    ["sent", "The provider accepted your access email."],
+    ["failed", "Your receipt/access email failed."],
+    ["quarantined", "Your receipt/access email is on hold"],
+    ["skipped", "Your receipt/access email was not sent."],
+    ["unknown", "Email delivery status is unavailable."],
+    ["pending", "Email delivery status is unavailable."],
+  ]) {
+    delivery = state;
+    await page.goto(`/?delivery-test=${state}#status=scoped-status`);
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText(message);
+    await expect(
+      dialog.getByRole("button", { name: "OPEN MY DOWNLOAD" }),
+    ).toBeEnabled();
+    if (state !== "sent")
+      await expect(dialog).not.toContainText("The provider accepted");
+    if (state !== "queued")
+      await expect(dialog).not.toContainText("email is queued");
+  }
+});
+
+test("disabled capture and recovery are truthful in English and Spanish without hiding the free reward", async ({
+  page,
+}) => {
+  await page.route("**/functions/v1/**", (route) => {
+    const name = route.request().url().split("/").pop();
+    expect(["capture-fan", "recover-access"]).toContain(name);
+    return route.fulfill({
+      json: {
+        success: true,
+        data:
+          name === "capture-fan"
+            ? { ...capture, delivery: "disabled" }
+            : {
+                delivery: "disabled",
+                message: "Email recovery is currently disabled.",
+              },
+      },
+    });
+  });
+  for (const locale of ["en", "es"] as const) {
+    await page.goto("/");
+    await page.evaluate(
+      (value) => localStorage.setItem("jona:locale", value),
+      locale,
+    );
+    await page.reload();
+    const copy =
+      locale === "en"
+        ? {
+            disabled: "Email delivery is currently disabled",
+            reward: "Download Acción wallpaper",
+            recovery: "Email recovery is currently disabled",
+          }
+        : {
+            disabled: "El envío de correo está desactivado",
+            reward: "Descargar wallpaper de Acción",
+            recovery: "La recuperación por correo está desactivada",
+          };
+    const form = page.locator(".stay-form");
+    await form.getByRole("textbox").fill("fan@example.com");
+    await form.getByRole("checkbox").check();
+    await form.getByRole("button").click();
+    await expect(page.locator(".stay-confirmation-consent")).toContainText(
+      copy.disabled,
+    );
+    await expect(page.getByRole("link", { name: copy.reward })).toHaveAttribute(
+      "href",
+      capture.magnetUrl,
+    );
+    await page.locator(".recover-access").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("textbox").fill("fan@example.com");
+    await dialog.locator('button[type="submit"]').click();
+    await expect(dialog).toContainText(copy.recovery);
+  }
 });
 test("responsive header bounds, modal keyboard trap and no horizontal overflow", async ({
   page,

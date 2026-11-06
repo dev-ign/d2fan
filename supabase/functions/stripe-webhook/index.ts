@@ -2,10 +2,18 @@ import Stripe from "npm:stripe@22.0.0";
 import { stripe, env, db, catalog, rpc } from "../_shared/platform.ts";
 export async function stripeWebhook(req: Request) {
   if (req.method !== "POST") return new Response("Use POST", { status: 405 });
+  let payments: ReturnType<typeof stripe>;
+  try {
+    payments = stripe();
+  } catch {
+    return new Response("Test-mode Stripe configuration required", {
+      status: 503,
+    });
+  }
   let event: Stripe.Event;
   try {
     const raw = await req.text();
-    event = await stripe().webhooks.constructEventAsync(
+    event = await payments.webhooks.constructEventAsync(
       raw,
       req.headers.get("stripe-signature") || "",
       env("STRIPE_WEBHOOK_SECRET"),
@@ -15,6 +23,8 @@ export async function stripeWebhook(req: Request) {
   } catch {
     return new Response("Invalid signature", { status: 400 });
   }
+  if (event.livemode !== false)
+    return new Response("Test-mode event required", { status: 400 });
   try {
     if (
       [
@@ -28,7 +38,9 @@ export async function stripeWebhook(req: Request) {
       if (received.metadata?.artist_id !== catalog.artistId)
         return new Response("Ignored", { status: 200 });
       // Retrieve current canonical state to tolerate out-of-order notifications.
-      const session = await stripe().checkout.sessions.retrieve(received.id);
+      const session = await payments.checkout.sessions.retrieve(received.id);
+      if (session.livemode !== false)
+        throw new Error("stripe_test_mode_required");
       if (
         session.payment_status === "paid" &&
         session.payment_intent &&
@@ -64,13 +76,17 @@ export async function stripeWebhook(req: Request) {
     } else if (event.type === "charge.refunded") {
       const charge = event.data.object as Stripe.Charge;
       // Fetch latest refund totals; stale partial-refund events cannot downgrade a full refund.
-      const current = await stripe().charges.retrieve(charge.id);
+      const current = await payments.charges.retrieve(charge.id);
+      if (current.livemode !== false)
+        throw new Error("stripe_test_mode_required");
       const intent =
         typeof current.payment_intent === "string"
           ? current.payment_intent
           : current.payment_intent?.id;
       if (intent) {
-        const payment = await stripe().paymentIntents.retrieve(intent);
+        const payment = await payments.paymentIntents.retrieve(intent);
+        if (payment.livemode !== false)
+          throw new Error("stripe_test_mode_required");
         if (payment.metadata.artist_id !== catalog.artistId)
           return new Response("Ignored", { status: 200 });
         await rpc("refund_purchase", {

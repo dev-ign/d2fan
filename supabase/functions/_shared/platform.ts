@@ -17,7 +17,11 @@ export function db() {
   );
 }
 export function stripe() {
-  return new Stripe(env("STRIPE_SECRET_KEY"), {
+  // This application is approved for test mode only; never infer a live fallback.
+  const key = Deno.env.get("STRIPE_SECRET_KEY") || "";
+  if (!/^(sk|rk)_test_[A-Za-z0-9_]+$/.test(key))
+    throw new Error("stripe_test_mode_required");
+  return new Stripe(key, {
     httpClient: Stripe.createFetchHttpClient(),
   });
 }
@@ -165,6 +169,8 @@ export async function contactLimit(email: string, endpoint: string) {
     throw new Error("rate_limited");
 }
 const messages: Record<string, string> = {
+  stripe_test_mode_required:
+    "Checkout is unavailable while payment configuration is reviewed.",
   email_configuration:
     "Email delivery is blocked by incomplete configuration. Check the listed setting names; no email was sent.",
   unauthorized:
@@ -256,6 +262,7 @@ export function endpoint(
                 ? (error as { fields: string[] }).fields
                 : undefined,
             retryable: ![
+              "stripe_test_mode_required",
               "email_configuration",
               "unauthorized",
               "invalid_request",
@@ -265,7 +272,7 @@ export function endpoint(
             ].includes(code),
           },
         },
-        code === "email_configuration"
+        ["email_configuration", "stripe_test_mode_required"].includes(code)
           ? 503
           : code === "unauthorized"
             ? 401

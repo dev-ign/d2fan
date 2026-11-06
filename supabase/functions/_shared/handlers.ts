@@ -19,7 +19,11 @@ import {
   enqueue,
   contactLimit,
 } from "./platform.ts";
-import type { CheckoutStatus } from "../../shared/contracts.ts";
+import type {
+  CheckoutStatus,
+  EmailDeliveryStatus,
+  RecoveryResponse,
+} from "../../shared/contracts.ts";
 import { authorizePaymentTest, testItemSlug } from "./payment-test.ts";
 import { captureEmailConfigured } from "./email-policy.ts";
 
@@ -80,6 +84,32 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
       event: "Lead",
       eventId: `capture:${b.requestId}`,
     });
+  let delivery: EmailDeliveryStatus = "unknown";
+  try {
+    // The capture RPC has validated this request's fingerprint and canonical fan.
+    // Read only this request's job, never the fan's other messaging history.
+    const { data: job, error } = await db()
+      .from("delivery_jobs")
+      .select("status,provider_id,sent_at,quarantined_at,email_policy_version")
+      .eq("artist_id", catalog.artistId)
+      .eq("fan_id", fan)
+      .eq("kind", "capture")
+      .eq("dedupe_key", `capture:${b.requestId}`)
+      .maybeSingle();
+    if (!error && job) {
+      if (job.quarantined_at) delivery = "quarantined";
+      else if (job.status === "sent")
+        delivery = job.provider_id && job.sent_at ? "sent" : "unknown";
+      else if (job.status === "failed" || job.status === "skipped")
+        delivery = job.status;
+      else if (["pending", "processing"].includes(job.status)) {
+        if (!captureEmailConfigured()) delivery = "disabled";
+        else if (job.email_policy_version === 1) delivery = "queued";
+      }
+    }
+  } catch {
+    // A delivery lookup failure must not undo capture or withhold the free reward.
+  }
   return {
     measurementToken: b.analyticsConsent
       ? await token(
@@ -98,9 +128,7 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
       b.requestId as string,
     ),
     eventId: `capture:${b.requestId}`,
-    delivery: captureEmailConfigured()
-      ? "queued"
-      : "not_configured",
+    delivery,
     magnetUrl,
   };
 }
@@ -115,6 +143,8 @@ export async function createCheckout(
     typeof b.analyticsConsent !== "boolean"
   )
     throw new Error("invalid_request");
+  // Validate the shared client before signing content or persisting an attempt.
+  const payments = stripe();
   const item = catalog.vault.find((v) => v.slug === b.itemSlug);
   const testing = b.operatorTestToken !== undefined;
   if (testing) {
@@ -174,14 +204,13 @@ export async function createCheckout(
   const issued = Math.floor(new Date(attempt.created_at).getTime() / 1000);
   const statusToken = await token("status", attempt.id, 7 * 86400, issued);
   if (
-    testing &&
     attempt.stripe_session_id &&
     !attempt.stripe_session_id.startsWith("cs_test_")
   )
-    throw new Error("unauthorized");
+    throw new Error("stripe_test_mode_required");
   const session = attempt.checkout_url
     ? { id: attempt.stripe_session_id, url: attempt.checkout_url }
-    : await stripe().checkout.sessions.create(
+    : await payments.checkout.sessions.create(
         {
           mode: "payment",
           customer_email: fan.email_normalized,
@@ -278,7 +307,7 @@ export async function checkoutStatus(
     currency: a.currency,
     purpose: a.purpose,
     itemSlug: a.item_slug,
-    delivery: "pending",
+    delivery: captureEmailConfigured() ? "unknown" : "disabled",
   };
   if (a.status === "completed") {
     const { data: p, error: pError } = await db()
@@ -291,12 +320,24 @@ export async function checkoutStatus(
     result.eventId = `purchase:${p.id}`;
     if (p.status !== "refunded" && a.purpose === "vault_unlock")
       result.accessToken = await token("access", p.id, 900);
-    const { data: job } = await db()
+    const { data: job, error: jobError } = await db()
       .from("delivery_jobs")
-      .select("status")
+      .select("status,provider_id,sent_at,quarantined_at,email_policy_version")
       .eq("dedupe_key", `purchase:${p.id}`)
       .maybeSingle();
-    result.delivery = job?.status || "pending";
+    if (jobError) result.delivery = "unknown";
+    else if (job?.quarantined_at) result.delivery = "quarantined";
+    else if (job?.status === "sent")
+      result.delivery = job.provider_id && job.sent_at ? "sent" : "unknown";
+    else if (job?.status === "failed" || job?.status === "skipped")
+      result.delivery = job.status;
+    else if (!captureEmailConfigured()) result.delivery = "disabled";
+    else if (
+      job?.email_policy_version === 1 &&
+      ["pending", "processing"].includes(job.status)
+    )
+      result.delivery = "queued";
+    else result.delivery = "unknown";
   }
   return result;
 }
@@ -331,8 +372,18 @@ export async function redeemVault(_req: Request, b: Record<string, unknown>) {
     ],
   };
 }
-export async function recoverAccess(_req: Request, b: Record<string, unknown>) {
+export async function recoverAccess(
+  _req: Request,
+  b: Record<string, unknown>,
+): Promise<RecoveryResponse> {
   const email = normalizeEmail(b.email);
+  // Return the same availability for every address; do not build a disabled backlog.
+  if (!captureEmailConfigured())
+    return {
+      delivery: "disabled",
+      message:
+        "Email recovery is currently disabled. Existing download links still work.",
+    };
   await contactLimit(email, "recovery");
   const { data: fan, error } = await db()
     .from("fans")
@@ -348,8 +399,9 @@ export async function recoverAccess(_req: Request, b: Record<string, unknown>) {
       `recovery:${fan.id}:${Math.floor(Date.now() / 300000)}`,
     );
   return {
+    delivery: "requested",
     message:
-      "If that email has purchases, an access email will be sent. Check spam too.",
+      "If that email has eligible purchases, the recovery request is saved. Email delivery has not been confirmed.",
   };
 }
 export async function manageConsent(_req: Request, b: Record<string, unknown>) {

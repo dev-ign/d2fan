@@ -3,6 +3,7 @@ import {
   createCheckout,
   checkoutStatus,
   redeemVault,
+  recoverAccess,
 } from "../functions/_shared/handlers.ts";
 import { token, endpoint } from "../functions/_shared/platform.ts";
 import { signToken, verifyToken } from "../functions/_shared/security.ts";
@@ -210,6 +211,10 @@ Deno.test(
         });
       if (url.includes("api.stripe.com")) {
         assert(
+          new Headers(init?.headers).get("Idempotency-Key") ===
+            `checkout:${attempt}`,
+        );
+        assert(
           new URLSearchParams(body).get(
             "line_items[0][price_data][unit_amount]",
           ) === "1500",
@@ -258,6 +263,205 @@ Deno.test(
       );
     } finally {
       globalThis.fetch = original;
+    }
+  },
+);
+
+Deno.test(
+  "capture replay and purchase email status use scoped evidence without withholding downloads",
+  async () => {
+    const settings = {
+      EMAIL_DELIVERY_ENABLED: "true",
+      EMAIL_PROVIDER_API_KEY: "re_mock",
+      EMAIL_FROM_ADDRESS: "music@jonaferreira.com",
+      SUPPORT_EMAIL: "support@example.com",
+      PUBLIC_SITE_URL: "https://example.com",
+      PRIVATE_FILE_PATHS: '{"lead-magnet":"rewards/accion-wallpaper.jpg"}',
+    };
+    const previous = new Map(
+      Object.keys(settings).map((name) => [name, Deno.env.get(name)]),
+    );
+    for (const [name, value] of Object.entries(settings))
+      Deno.env.set(name, value);
+    const original = fetch,
+      req = new Request("http://localhost"),
+      statusToken = await token("status", "attempt", 300);
+    const captureRequest = {
+      requestId: crypto.randomUUID(),
+      email: "fan@example.com",
+      language: "en",
+      source: "stay_close",
+      emailMarketing: true,
+      analyticsConsent: false,
+      firstTouch: { release: "accion" },
+      lastTouch: { release: "accion" },
+    };
+    let fingerprint = "";
+    let job: Record<string, unknown> | null = null,
+      queryFails = false;
+    globalThis.fetch = (input, init) => {
+      const url = String(input);
+      if (url.includes("/rpc/check_rate"))
+        return Promise.resolve(Response.json(true));
+      if (url.includes("/rpc/capture_fan")) {
+        const body = JSON.parse(String(init?.body));
+        assert(
+          body.p_request === captureRequest.requestId &&
+            body.p_artist === "jona-ferreira" &&
+            body.p_opt_in === true,
+        );
+        assert(
+          body.p_first.release === "accion" && body.p_last.release === "accion",
+        );
+        if (fingerprint) assert(body.p_fingerprint === fingerprint);
+        fingerprint = body.p_fingerprint;
+        return Promise.resolve(Response.json("canonical-fan"));
+      }
+      if (url.includes("/storage/v1/object/sign/"))
+        return Promise.resolve(
+          Response.json({ signedURL: "/object/sign/reward" }),
+        );
+      assert(
+        !init?.method || init.method === "GET",
+        "status must be read-only",
+      );
+      if (url.includes("/checkout_attempts"))
+        return Promise.resolve(
+          Response.json({
+            status: "completed",
+            amount_minor: 500,
+            currency: "usd",
+            purpose: "vault_unlock",
+          }),
+        );
+      if (url.includes("/purchases"))
+        return Promise.resolve(
+          Response.json({ id: "purchase", status: "paid" }),
+        );
+      if (url.includes("/delivery_jobs")) {
+        const params = new URL(url).searchParams;
+        if (params.get("dedupe_key")?.startsWith("eq.capture:")) {
+          assert(Boolean(fingerprint));
+          assert(
+            params.get("dedupe_key") ===
+              `eq.capture:${captureRequest.requestId}`,
+          );
+          assert(
+            params.get("artist_id") === "eq.jona-ferreira" &&
+              params.get("fan_id") === "eq.canonical-fan" &&
+              params.get("kind") === "eq.capture",
+          );
+          assert(
+            params.get("select") ===
+              "status,provider_id,sent_at,quarantined_at,email_policy_version",
+          );
+        }
+        return Promise.resolve(
+          Response.json(queryFails ? { message: "unavailable" } : job, {
+            status: queryFails ? 503 : 200,
+          }),
+        );
+      }
+      throw new Error("unexpected mocked request");
+    };
+    try {
+      const cases = [
+        [null, "unknown"],
+        [{ status: "pending", email_policy_version: 1 }, "queued"],
+        [{ status: "processing", email_policy_version: 1 }, "queued"],
+        [{ status: "pending", email_policy_version: 0 }, "unknown"],
+        [{ status: "sent" }, "unknown"],
+        [{ status: "sent", provider_id: "receipt" }, "unknown"],
+        [
+          {
+            status: "sent",
+            provider_id: "receipt",
+            sent_at: new Date().toISOString(),
+          },
+          "sent",
+        ],
+        [{ status: "failed" }, "failed"],
+        [
+          { status: "failed", quarantined_at: new Date().toISOString() },
+          "quarantined",
+        ],
+        [{ status: "skipped" }, "skipped"],
+      ] as const;
+      for (const [row, expected] of cases) {
+        job = row;
+        const result = await checkoutStatus(req, { token: statusToken });
+        assert(result.delivery === expected && result.accessToken);
+        const captured = await captureFan(req, captureRequest);
+        assert(captured.delivery === expected && captured.magnetUrl);
+        assert(
+          Object.keys(captured).every((key) =>
+            [
+              "measurementToken",
+              "captureToken",
+              "eventId",
+              "delivery",
+              "magnetUrl",
+            ].includes(key),
+          ),
+        );
+      }
+      Deno.env.set("EMAIL_DELIVERY_ENABLED", "false");
+      job = { status: "pending", email_policy_version: 1 };
+      assert(
+        (await checkoutStatus(req, { token: statusToken })).delivery ===
+          "disabled",
+      );
+      assert((await captureFan(req, captureRequest)).delivery === "disabled");
+      queryFails = true;
+      const result = await checkoutStatus(req, { token: statusToken });
+      assert(result.delivery === "unknown" && result.accessToken);
+      const captured = await captureFan(req, captureRequest);
+      assert(captured.delivery === "unknown" && captured.magnetUrl);
+      let recoveryCalls = 0;
+      globalThis.fetch = () => {
+        recoveryCalls++;
+        throw new Error("disabled recovery must not query or queue");
+      };
+      const known = await recoverAccess(req, { email: "fan@example.com" });
+      const unknown = await recoverAccess(req, {
+        email: "unknown@example.com",
+      });
+      assert(
+        JSON.stringify(known) === JSON.stringify(unknown) &&
+          known.delivery === "disabled" &&
+          recoveryCalls === 0,
+      );
+      Deno.env.set("EMAIL_DELIVERY_ENABLED", "true");
+      let knownFan = true,
+        queued = 0;
+      globalThis.fetch = (input) => {
+        const url = String(input);
+        if (url.includes("/rpc/check_rate"))
+          return Promise.resolve(Response.json(true));
+        if (url.includes("/fans"))
+          return Promise.resolve(
+            Response.json(knownFan ? { id: "fan" } : null),
+          );
+        if (url.includes("/delivery_jobs")) {
+          queued++;
+          return Promise.resolve(Response.json(null));
+        }
+        throw new Error("unexpected mocked request");
+      };
+      const requested = await recoverAccess(req, { email: "fan@example.com" });
+      knownFan = false;
+      const absent = await recoverAccess(req, { email: "unknown@example.com" });
+      assert(
+        JSON.stringify(requested) === JSON.stringify(absent) &&
+          requested.delivery === "requested" &&
+          queued === 1,
+      );
+    } finally {
+      globalThis.fetch = original;
+      for (const [name, value] of previous) {
+        if (value === undefined) Deno.env.delete(name);
+        else Deno.env.set(name, value);
+      }
     }
   },
 );

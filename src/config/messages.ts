@@ -19,7 +19,19 @@ const formMessages = {
     rewardReady: "Your exclusive Acción wallpaper is ready to download.",
     rewardDownload: "Download Acción wallpaper",
     marketingConfirmation:
-      "You requested music updates. A separate email confirmation is required before marketing begins.",
+      "You requested music updates. A confirmation email is queued; marketing requires your separate confirmation.",
+    marketingConfirmationDisabled:
+      "You requested music updates. Email delivery is currently disabled, so no confirmation email is being sent. Marketing permission has not been granted by this request.",
+    marketingConfirmationAccepted:
+      "You requested music updates. The provider accepted the confirmation email; marketing requires your separate confirmation.",
+    marketingConfirmationFailed:
+      "You requested music updates. Confirmation email delivery failed; this request does not confirm marketing permission.",
+    marketingConfirmationQuarantined:
+      "You requested music updates. The confirmation email is on hold and will not be retried automatically; this request does not confirm marketing permission.",
+    marketingConfirmationSkipped:
+      "You requested music updates. The confirmation email was skipped; this request does not confirm marketing permission.",
+    marketingConfirmationUnknown:
+      "You requested music updates. Confirmation email delivery status is unavailable; this request does not confirm marketing permission.",
     marketingNotRequested:
       "You didn’t request music updates with this signup. Your existing preferences stay the same.",
     tax: "Support is a tip / payment to the artist — not a charitable donation, and not tax-deductible.",
@@ -53,7 +65,19 @@ const formMessages = {
     rewardReady: "Tu wallpaper exclusivo de Acción está listo para descargar.",
     rewardDownload: "Descargar wallpaper de Acción",
     marketingConfirmation:
-      "Pediste novedades musicales. Se requiere una confirmación por correo antes de empezar a enviarlas.",
+      "Pediste novedades musicales. La confirmación por correo está en cola; las novedades requieren tu confirmación por separado.",
+    marketingConfirmationDisabled:
+      "Pediste novedades musicales. El envío de correo está desactivado, por lo que no se está enviando una confirmación. Esta solicitud no ha otorgado permiso de marketing.",
+    marketingConfirmationAccepted:
+      "Pediste novedades musicales. El proveedor aceptó el correo de confirmación; las novedades requieren tu confirmación por separado.",
+    marketingConfirmationFailed:
+      "Pediste novedades musicales. Falló el envío del correo de confirmación; esta solicitud no confirma el permiso de marketing.",
+    marketingConfirmationQuarantined:
+      "Pediste novedades musicales. El correo de confirmación está retenido y no se reintentará automáticamente; esta solicitud no confirma el permiso de marketing.",
+    marketingConfirmationSkipped:
+      "Pediste novedades musicales. Se omitió el correo de confirmación; esta solicitud no confirma el permiso de marketing.",
+    marketingConfirmationUnknown:
+      "Pediste novedades musicales. El estado del envío del correo de confirmación no está disponible; esta solicitud no confirma el permiso de marketing.",
     marketingNotRequested:
       "No pediste novedades musicales con este registro. Tus preferencias anteriores siguen igual.",
     tax: "El apoyo es un pago al artista, no una donación benéfica ni deducible de impuestos.",

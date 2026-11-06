@@ -32,8 +32,22 @@ export interface CaptureResponse {
   measurementToken?: string;
   captureToken: string;
   eventId: string;
-  delivery: "queued" | "not_configured";
+  // not_configured remains readable while older capture functions are deployed.
+  delivery: EmailDeliveryStatus | "not_configured";
   magnetUrl?: string;
+}
+export type EmailDeliveryStatus =
+  | "disabled"
+  | "queued"
+  | "sent"
+  | "failed"
+  | "quarantined"
+  | "skipped"
+  | "unknown";
+export interface RecoveryResponse {
+  message: string;
+  // Older deployed recovery functions return only a generic message.
+  delivery?: "disabled" | "requested";
 }
 export interface CheckoutRequest {
   operatorTestToken?: string;
@@ -66,7 +80,7 @@ export interface CheckoutStatus {
   purpose: string;
   eventId?: string;
   itemSlug?: string;
-  delivery: string;
+  delivery: EmailDeliveryStatus;
 }
 export type AnalyticsEvent =
   | "PageView"

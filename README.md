@@ -4,7 +4,7 @@ React + TypeScript + Vite, one shared native audio engine, typed local content, 
 
 Start with the [October 27 Phase 1 audit and Resend handoff](docs/PHASE_1_AUDIT.md) for current verification status. The original checklist is preserved in the [service connection guide](docs/integrations/SETUP_GUIDE.md).
 
-The existing Supabase test project has both migrations and eleven deployed functions. The Stripe sandbox has one verified paid-item purchase; refund, replay, tip and asynchronous provider tests remain open. Resend delivery and scheduling are not validated or activated. WhatsApp stays disabled until an approved verified-phone integration exists.
+Historical evidence supports three migrations and eleven deployed functions in the existing Supabase test project, including the completed disabled email rollout. See [the updated Resend readiness status](docs/integrations/RESEND_READINESS.md): current hosted values still require separately approved verification, and the migration and six-job quarantine must not be repeated. The owner reports manually resuming the project; November 6 Batch 1 remains local only. The worker GET's constant `sending:false` identifies its safety revision, not the current switches. The Stripe sandbox has one verified paid-item purchase; refund, replay, tip and asynchronous provider tests remain open. Email delivery, marketing, test sending and scheduling remain unauthorized. WhatsApp stays disabled until an approved verified-phone integration exists.
 
 ```sh
 nvm install

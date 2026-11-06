@@ -5,7 +5,7 @@ import {
   redeemVault,
 } from "../functions/_shared/handlers.ts";
 import { signToken } from "../functions/_shared/security.ts";
-import { token } from "../functions/_shared/platform.ts";
+import { stripe, token } from "../functions/_shared/platform.ts";
 import { stripeWebhook } from "../functions/stripe-webhook/index.ts";
 const secret = "local-unit-tests-only-secret-with-at-least-32-characters";
 const req = new Request("http://127.0.0.1:54324/functions/v1/create-checkout", {
@@ -55,6 +55,87 @@ const json = (value: unknown) =>
   new Response(JSON.stringify(value), {
     headers: { "content-type": "application/json" },
   });
+
+async function webhookRequest(event: Record<string, unknown>) {
+  const payload = JSON.stringify(event),
+    timestamp = Math.floor(Date.now() / 1000),
+    encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode("whsec_mock"),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(`${timestamp}.${payload}`),
+  );
+  return new Request("http://localhost", {
+    method: "POST",
+    headers: {
+      "stripe-signature": `t=${timestamp},v1=${Array.from(new Uint8Array(mac), (b) => b.toString(16).padStart(2, "0")).join("")}`,
+    },
+    body: payload,
+  });
+}
+
+Deno.test(
+  "normal checkout rejects live, missing and ambiguous keys before any network or attempt write",
+  async () => {
+    setup();
+    const captureToken = await token("capture", "fan", 300),
+      original = fetch;
+    let requests = 0;
+    globalThis.fetch = () => {
+      requests++;
+      throw new Error("network forbidden");
+    };
+    try {
+      for (const key of [
+        undefined,
+        "",
+        "sk_live_mock",
+        "rk_live_mock",
+        "sk_test_",
+        "sk_test_mock ",
+        "unknown",
+      ]) {
+        if (key === undefined) Deno.env.delete("STRIPE_SECRET_KEY");
+        else Deno.env.set("STRIPE_SECRET_KEY", key);
+        let code = "";
+        try {
+          await createCheckout(req, {
+            captureToken,
+            requestId: crypto.randomUUID(),
+            purpose: "tip",
+            amountMinor: 500,
+            analyticsConsent: false,
+          });
+        } catch (error) {
+          code = error instanceof Error ? error.message : "";
+        }
+        assert(code === "stripe_test_mode_required");
+        assert(
+          (
+            await stripeWebhook(
+              new Request("http://localhost", { method: "POST", body: "{}" }),
+            )
+          ).status === 503,
+        );
+      }
+      assert(requests === 0);
+      for (const key of ["sk_test_mock", "rk_test_mock"]) {
+        Deno.env.set("STRIPE_SECRET_KEY", key);
+        assert(stripe());
+      }
+    } finally {
+      globalThis.fetch = original;
+      setup();
+    }
+  },
+);
 
 Deno.test(
   "operator grant requires signature, scope, item, artist, expiry, test key, switch and local origin",
@@ -148,6 +229,10 @@ Deno.test(
         );
       if (url.includes("api.stripe.com")) {
         charged++;
+        assert(
+          new Headers(init?.headers).get("Idempotency-Key") ===
+            `checkout:${attempt}`,
+        );
         const params = new URLSearchParams(String(init?.body));
         assert(params.get("line_items[0][price_data][unit_amount]") === "500");
         assert(params.get("line_items[0][price_data][currency]") === "usd");
@@ -260,6 +345,7 @@ Deno.test(
     setup();
     const original = fetch;
     let payment = "unpaid",
+      mode: boolean | undefined = false,
       fulfills = 0;
     globalThis.fetch = (input, init) => {
       const url = String(input);
@@ -267,6 +353,7 @@ Deno.test(
         return Promise.resolve(
           json({
             id: "cs_test_mock",
+            livemode: mode,
             payment_status: payment,
             payment_intent: "pi_test",
             amount_total: 500,
@@ -289,7 +376,7 @@ Deno.test(
         "checkout.session.async_payment_succeeded",
       ]) {
         if (type.endsWith("succeeded")) payment = "paid";
-        const payload = JSON.stringify({
+        const event = {
           id: `evt_${type}`,
           type,
           livemode: false,
@@ -300,35 +387,123 @@ Deno.test(
               metadata: { artist_id: "jona-ferreira" },
             },
           },
-        });
-        const timestamp = Math.floor(Date.now() / 1000);
-        const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-          "raw",
-          encoder.encode("whsec_mock"),
-          { name: "HMAC", hash: "SHA-256" },
-          false,
-          ["sign"],
-        );
-        const mac = await crypto.subtle.sign(
-          "HMAC",
-          key,
-          encoder.encode(`${timestamp}.${payload}`),
-        );
-        const signature = `t=${timestamp},v1=${Array.from(new Uint8Array(mac), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+        };
         assert(
-          (
-            await stripeWebhook(
-              new Request("http://localhost", {
-                method: "POST",
-                headers: { "stripe-signature": signature },
-                body: payload,
-              }),
-            )
-          ).status === 200,
+          (await stripeWebhook(await webhookRequest(event))).status === 200,
         );
         assert(fulfills === (payment === "paid" ? 1 : 0));
       }
+      for (mode of [true, undefined]) {
+        const response = await stripeWebhook(
+          await webhookRequest({
+            id: "evt_wrong_canonical_mode",
+            type: "checkout.session.completed",
+            livemode: false,
+            data: {
+              object: {
+                id: "cs_test_mock",
+                metadata: { artist_id: "jona-ferreira" },
+              },
+            },
+          }),
+        );
+        assert(response.status === 503 && fulfills === 1);
+      }
+    } finally {
+      globalThis.fetch = original;
+    }
+  },
+);
+
+Deno.test(
+  "signed live or missing event modes cannot reach Stripe or financial RPCs",
+  async () => {
+    setup();
+    const original = fetch;
+    let requests = 0;
+    globalThis.fetch = () => {
+      requests++;
+      throw new Error("network forbidden");
+    };
+    try {
+      for (const livemode of [true, undefined]) {
+        const response = await stripeWebhook(
+          await webhookRequest({
+            id: "evt_wrong_mode",
+            type: "checkout.session.completed",
+            livemode,
+            data: {
+              object: {
+                id: "cs_test_mock",
+                metadata: { artist_id: "jona-ferreira" },
+              },
+            },
+          }),
+        );
+        assert(response.status === 400);
+      }
+      assert(requests === 0);
+    } finally {
+      globalThis.fetch = original;
+    }
+  },
+);
+
+Deno.test(
+  "refund handling requires test-mode charge and PaymentIntent before its RPC",
+  async () => {
+    setup();
+    const original = fetch;
+    let chargeMode: boolean | undefined = true,
+      paymentMode: boolean | undefined = false,
+      refunds = 0;
+    globalThis.fetch = (input) => {
+      const url = String(input);
+      if (url.includes("/v1/charges/"))
+        return Promise.resolve(
+          json({
+            livemode: chargeMode,
+            payment_intent: "pi_test",
+            refunded: true,
+          }),
+        );
+      if (url.includes("/v1/payment_intents/"))
+        return Promise.resolve(
+          json({
+            livemode: paymentMode,
+            metadata: { artist_id: "jona-ferreira" },
+          }),
+        );
+      if (url.includes("/rpc/refund_purchase")) {
+        refunds++;
+        return Promise.resolve(json(null));
+      }
+      throw new Error("unexpected mocked request");
+    };
+    try {
+      for (const [charge, payment] of [
+        [true, false],
+        [undefined, false],
+        [false, true],
+        [false, undefined],
+        [false, false],
+      ]) {
+        chargeMode = charge;
+        paymentMode = payment;
+        const response = await stripeWebhook(
+          await webhookRequest({
+            id: "evt_refund_mode",
+            type: "charge.refunded",
+            livemode: false,
+            data: { object: { id: "ch_test" } },
+          }),
+        );
+        assert(
+          response.status ===
+            (charge === false && payment === false ? 200 : 503),
+        );
+      }
+      assert(refunds === 1);
     } finally {
       globalThis.fetch = original;
     }

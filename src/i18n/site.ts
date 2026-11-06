@@ -179,7 +179,17 @@ export const english = {
     testSaved: "Your test purchase is saved. Download your package below.",
     sent: "The provider accepted your access email.",
     queued:
-      "Your receipt/access email is queued. Your confirmed purchase stays saved if delivery needs a retry.",
+      "Your receipt/access email is queued. Provider acceptance is not yet confirmed. Your purchase stays saved.",
+    deliveryDisabled:
+      "Email delivery is currently disabled. Your purchase stays saved. Any eligible download remains available here.",
+    deliveryFailed:
+      "Your receipt/access email failed. Your purchase stays saved. Any eligible download remains available here.",
+    deliveryQuarantined:
+      "Your receipt/access email is on hold and will not be retried automatically. Your purchase stays saved. Any eligible download remains available here.",
+    deliverySkipped:
+      "Your receipt/access email was not sent. Your purchase stays saved. Any eligible download remains available here.",
+    deliveryUnknown:
+      "Email delivery status is unavailable. Your purchase stays saved. Any eligible download remains available here.",
     restart: "START A NEW CHECKOUT",
     resume: "RESUME SECURE PAYMENT",
     checking: "CHECKING…",
@@ -193,12 +203,16 @@ export const english = {
     your: "YOUR",
     vault: "VAULT.",
     instructions:
-      "Enter the email used at checkout. We’ll send fresh access links to that inbox.",
+      "Enter the email used at checkout to request fresh access links. We’ll show whether email recovery is available.",
     email: "Purchase email",
-    sending: "SENDING…",
-    send: "SEND ACCESS EMAIL",
+    sending: "REQUESTING…",
+    send: "REQUEST ACCESS LINKS",
     recovered:
-      "If this email has eligible purchases, fresh access links will be sent to that inbox.",
+      "If this email has eligible purchases, the recovery request is saved. Email delivery has not been confirmed.",
+    recoveryDisabled:
+      "Email recovery is currently disabled. Existing download links still work; no recovery email is being sent.",
+    recoveryUnknown:
+      "Your recovery request was received. Email delivery status is unavailable.",
     consentConfirmed: "Your music updates are confirmed.",
     unsubscribed: "You have unsubscribed from music updates.",
   },
@@ -390,7 +404,17 @@ export const spanish: SiteMessages = {
     testSaved: "Guardamos tu compra de prueba. Descarga tu paquete aquí.",
     sent: "El proveedor aceptó tu correo de acceso.",
     queued:
-      "Tu correo de recibo y acceso está en cola. Tu compra confirmada sigue guardada si hay que reintentar el envío.",
+      "Tu correo de recibo y acceso está en cola. El proveedor aún no ha confirmado su aceptación. Tu compra sigue guardada.",
+    deliveryDisabled:
+      "El envío de correo está desactivado. Tu compra sigue guardada. Si incluye una descarga, puedes abrirla aquí.",
+    deliveryFailed:
+      "Falló tu correo de recibo y acceso. Tu compra sigue guardada. Si incluye una descarga, puedes abrirla aquí.",
+    deliveryQuarantined:
+      "Tu correo de recibo y acceso está retenido y no se reintentará automáticamente. Tu compra sigue guardada. Si incluye una descarga, puedes abrirla aquí.",
+    deliverySkipped:
+      "No se envió tu correo de recibo y acceso. Tu compra sigue guardada. Si incluye una descarga, puedes abrirla aquí.",
+    deliveryUnknown:
+      "El estado del envío de correo no está disponible. Tu compra sigue guardada. Si incluye una descarga, puedes abrirla aquí.",
     restart: "INICIAR UN PAGO NUEVO",
     resume: "RETOMAR EL PAGO SEGURO",
     checking: "VERIFICANDO…",
@@ -404,12 +428,16 @@ export const spanish: SiteMessages = {
     your: "TU",
     vault: "ARCHIVO.",
     instructions:
-      "Escribe el correo que usaste al pagar. Te enviaremos nuevos enlaces de acceso a esa dirección.",
+      "Escribe el correo que usaste al pagar para solicitar nuevos enlaces. Te indicaremos si la recuperación por correo está disponible.",
     email: "Correo de la compra",
-    sending: "ENVIANDO…",
-    send: "ENVIAR CORREO DE ACCESO",
+    sending: "SOLICITANDO…",
+    send: "SOLICITAR ENLACES DE ACCESO",
     recovered:
-      "Si este correo tiene compras válidas, enviaremos nuevos enlaces de acceso a esa dirección.",
+      "Si este correo tiene compras válidas, guardamos la solicitud de recuperación. El envío de correo no se ha confirmado.",
+    recoveryDisabled:
+      "La recuperación por correo está desactivada. Los enlaces de descarga existentes siguen funcionando; no se está enviando un correo de recuperación.",
+    recoveryUnknown:
+      "Recibimos tu solicitud de recuperación. El estado del envío de correo no está disponible.",
     consentConfirmed: "Confirmaste las novedades musicales.",
     unsubscribed: "Cancelaste tu suscripción a las novedades musicales.",
   },

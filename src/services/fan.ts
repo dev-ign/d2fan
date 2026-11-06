@@ -4,6 +4,7 @@ import type {
   CheckoutRequest,
   CheckoutResponse,
   CheckoutStatus,
+  RecoveryResponse,
 } from "../../supabase/shared/contracts";
 import { api } from "./api";
 import { runtime } from "../config/runtime";
@@ -15,7 +16,7 @@ export const fanService = {
       testing ? runtime.paymentTestApi : runtime.api,
     ),
   recover: (email: string) =>
-    api<{ message: string }>("recover-access", { email }),
+    api<RecoveryResponse>("recover-access", { email }),
 };
 export const checkoutService = {
   create: (request: CheckoutRequest) =>
