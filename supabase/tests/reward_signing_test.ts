@@ -193,7 +193,7 @@ Deno.test(
           });
           assert(captures === 1, "capture was not completed");
           assert(Boolean(result.captureToken), "capture token missing");
-          assert(result.delivery === "not_configured", "email became required");
+          assert(result.delivery === "unknown", "email became required");
           if (scenario.category) {
             assert(
               result.magnetUrl === undefined,
