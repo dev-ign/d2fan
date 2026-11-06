@@ -18,6 +18,7 @@ blob-report/
 
 # Disposable agent reports stay local; maintained Markdown remains in Git.
 /.agent-reports/
+/docs/
 /docs/_generated/
 /docs/_scratch/
 /docs/_local/

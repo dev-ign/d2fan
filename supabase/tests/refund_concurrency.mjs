@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
+import { testEmailConcurrency } from "./email_database.mjs";
 
 const exec = promisify(execFile);
 const binary = (name) =>
@@ -348,6 +349,7 @@ export async function runRefundConcurrencyTests() {
       await first.query("commit");
       console.log("PASS: unrelated fans do not block each other");
     }
+    await testEmailConcurrency({ observer, first, second });
     console.log(
       `PASS: 8 real multi-session refund scenarios (${version}); private disposable cluster, no hosted connection.`,
     );

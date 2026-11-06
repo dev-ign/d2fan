@@ -1,5 +1,7 @@
 # Resend readiness and owner setup
 
+Subsequent local safety fixes and the approval-gated test procedure are documented in [EMAIL_SAFETY_HANDOFF.md](EMAIL_SAFETY_HANDOFF.md). Those changes have not been applied/deployed; use that report for current secret checks and outstanding activation gates.
+
 Audited October 27, 2026. This is a configuration/implementation plan. No email, worker invocation, scheduler activation or deployment was performed. See [the complete Phase 1 audit](../PHASE_1_AUDIT.md) for Stripe, architecture, repository and test evidence.
 
 ## Already implemented

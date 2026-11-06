@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { runRefundConcurrencyTests } from "./refund_concurrency.mjs";
+import { testEmailDatabase } from "./email_database.mjs";
 // Set PHASE1_PGLITE_MODULE to an absolute installed module path if using temporary tools.
 const { PGlite } = await import(
   process.env.PHASE1_PGLITE_MODULE || "@electric-sql/pglite"
@@ -477,4 +478,20 @@ console.log(
   "PASS: migrations, identity/consent, price mismatch rollback, webhook replay, tip isolation, terminal full refunds, duplicate/stale refunds, multiple qualifying purchases, refund-before-purchase retry, anonymous/authenticated negative access.",
 );
 await db.close();
+const emailDb = new PGlite();
+await emailDb.exec(
+  "create role anon; create role authenticated; create role service_role; create schema storage; create table storage.buckets(id text primary key,name text,public boolean);",
+);
+for (const name of (await readdir(migrationDirectory))
+  .filter((name) => name.endsWith(".sql"))
+  .sort()) {
+  await emailDb.exec(
+    (await readFile(new URL(name, migrationDirectory), "utf8")).replace(
+      "create extension if not exists pgcrypto;",
+      "",
+    ),
+  );
+}
+await testEmailDatabase(emailDb);
+await emailDb.close();
 await runRefundConcurrencyTests();

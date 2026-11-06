@@ -165,6 +165,8 @@ export async function contactLimit(email: string, endpoint: string) {
     throw new Error("rate_limited");
 }
 const messages: Record<string, string> = {
+  email_configuration:
+    "Email delivery is blocked by incomplete configuration. Check the listed setting names; no email was sent.",
   unauthorized:
     "This link has expired or is invalid. Request a new access email.",
   invalid_email: "Enter a valid email address.",
@@ -246,7 +248,15 @@ export function endpoint(
             message:
               messages[code] ||
               "Could not complete this request. Please try again.",
+            configurationFields:
+              code === "email_configuration" &&
+              error &&
+              typeof error === "object" &&
+              "fields" in error
+                ? (error as { fields: string[] }).fields
+                : undefined,
             retryable: ![
+              "email_configuration",
               "unauthorized",
               "invalid_request",
               "invalid_email",
@@ -255,13 +265,15 @@ export function endpoint(
             ].includes(code),
           },
         },
-        code === "unauthorized"
-          ? 401
-          : code === "rate_limited"
-            ? 429
-            : messages[code]
-              ? 400
-              : 503,
+        code === "email_configuration"
+          ? 503
+          : code === "unauthorized"
+            ? 401
+            : code === "rate_limited"
+              ? 429
+              : messages[code]
+                ? 400
+                : 503,
       );
     }
   };

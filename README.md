@@ -36,6 +36,7 @@ npm run test:payments
 - [Provider validation checklist](docs/qa/PROVIDER_ACCEPTANCE.md)
 - [Security/privacy and retention](docs/qa/SECURITY_AND_PRIVACY.md)
 - [Controlled payment testing](docs/development/PAYMENT_TESTING.md)
+- [Email safety fixes and controlled-test approval](docs/integrations/EMAIL_SAFETY_HANDOFF.md)
 - [Media, source masters and locale maintenance](docs/development/MEDIA_AND_LOCALE.md)
 
 The private bucket contains the free reward and Acción paid pack. All public paid catalog items remain coming soon; the local operator runner deliberately enables only controlled sandbox testing. Do not sell public preview art as an exclusive. Camera/portrait masters stay in ignored `source-media/`; optimized runtime media is tracked. Private reward/paid files are absent from `public/`.

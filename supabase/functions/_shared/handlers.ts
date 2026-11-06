@@ -21,6 +21,7 @@ import {
 } from "./platform.ts";
 import type { CheckoutStatus } from "../../shared/contracts.ts";
 import { authorizePaymentTest, testItemSlug } from "./payment-test.ts";
+import { captureEmailConfigured } from "./email-policy.ts";
 
 export async function captureFan(_req: Request, b: Record<string, unknown>) {
   const email = normalizeEmail(b.email);
@@ -97,14 +98,11 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
       b.requestId as string,
     ),
     eventId: `capture:${b.requestId}`,
-    delivery: envConfigured("EMAIL_PROVIDER_API_KEY")
+    delivery: captureEmailConfigured()
       ? "queued"
       : "not_configured",
     magnetUrl,
   };
-}
-function envConfigured(name: string) {
-  return Boolean(Deno.env.get(name));
 }
 export async function createCheckout(
   _req: Request,
