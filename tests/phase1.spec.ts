@@ -195,6 +195,87 @@ test("network failure keeps input and expired/invalid recovery is honest", async
     "fan@example.com",
   );
 });
+test("consent links require explicit action and show localized invalid-link outcomes", async ({
+  page,
+}) => {
+  const requests: { action: string; token: string }[] = [];
+  await page.addInitScript(() => {
+    const locale = new URL(location.href).searchParams.get("consent-locale");
+    if (locale === "en" || locale === "es")
+      localStorage.setItem("jona:locale", locale);
+  });
+  await page.route("**/functions/v1/manage-consent", (route) => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    return route.fulfill(
+      body.token === "fresh-confirmation"
+        ? {
+            json: { success: true, data: { message: "Confirmed" } },
+          }
+        : {
+            status: 401,
+            json: {
+              success: false,
+              error: {
+                code: "unauthorized",
+                message:
+                  "This link has expired or is invalid. Request a new access email.",
+                retryable: false,
+              },
+            },
+          },
+    );
+  });
+  for (const locale of ["en", "es"] as const) {
+    const copy =
+      locale === "en"
+        ? {
+            confirm: "CONFIRM MUSIC UPDATES",
+            unsubscribe: "UNSUBSCRIBE",
+            confirmationInvalid:
+              "This confirmation link is no longer valid. To request music updates, sign up again and choose email updates.",
+            unsubscribeInvalid:
+              "This unsubscribe link has expired or is invalid. Your preferences have not changed.",
+            confirmed: "Your music updates are confirmed.",
+          }
+        : {
+            confirm: "CONFIRMAR NOVEDADES MUSICALES",
+            unsubscribe: "CANCELAR SUSCRIPCIÓN",
+            confirmationInvalid:
+              "Este enlace de confirmación ya no es válido. Para pedir novedades musicales, vuelve a registrarte y elige recibir novedades por correo.",
+            unsubscribeInvalid:
+              "Este enlace para cancelar la suscripción caducó o no es válido. Tus preferencias no han cambiado.",
+            confirmed: "Confirmaste las novedades musicales.",
+          };
+    for (const action of ["confirm", "unsubscribe"] as const) {
+      const before = requests.length;
+      await page.goto(
+        `/?consent-locale=${locale}&case=${action}#${action}=legacy-link`,
+      );
+      const button = page.getByRole("button", {
+        name: copy[action],
+        exact: true,
+      });
+      await expect(button).toBeVisible();
+      expect(requests).toHaveLength(before);
+      await button.click();
+      await expect(page.getByRole("dialog").getByRole("status")).toHaveText(
+        action === "confirm"
+          ? copy.confirmationInvalid
+          : copy.unsubscribeInvalid,
+      );
+      expect(requests.at(-1)).toEqual({ action, token: "legacy-link" });
+      await expect(page.getByRole("dialog")).not.toContainText(copy.confirmed);
+    }
+    await page.goto(
+      `/?consent-locale=${locale}&case=fresh#confirm=fresh-confirmation`,
+    );
+    await page.getByRole("button", { name: copy.confirm, exact: true }).click();
+    await expect(page.getByRole("dialog").getByRole("status")).toHaveText(
+      copy.confirmed,
+    );
+  }
+});
 test("email delivery states stay distinct while paid download access remains available", async ({
   page,
 }) => {

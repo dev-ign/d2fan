@@ -87,7 +87,7 @@ test("available reward uses the backend signed URL, without claiming queued emai
     name: "You're in La Cultura.",
   });
   await expect(confirmation).toContainText(
-    "separate email confirmation is required",
+    "You requested music updates. A confirmation email is queued; marketing requires your separate confirmation.",
   );
   await expect(confirmation).not.toContainText(
     /email (was |has been )?(sent|delivered)|check your (email|inbox)/i,

@@ -10,6 +10,10 @@ import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 import { testEmailConcurrency } from "./email_database.mjs";
+import {
+  seedConsentMigration,
+  testConsentDatabase,
+} from "./consent_database.mjs";
 
 const exec = promisify(execFile);
 const binary = (name) =>
@@ -98,9 +102,10 @@ function connect(socket) {
 }
 
 export async function runRefundConcurrencyTests() {
+  const consentOnly = process.argv.includes("--consent-only");
   if (process.platform === "win32") {
     console.log(
-      "SKIP: refund concurrency requires local PostgreSQL Unix sockets.",
+      "SKIP: database concurrency requires local PostgreSQL Unix sockets.",
     );
     return;
   }
@@ -114,7 +119,7 @@ export async function runRefundConcurrencyTests() {
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
     console.log(
-      "SKIP: real refund concurrency tests need initdb, pg_ctl and psql; set PHASE1_POSTGRES_BIN. PGlite is not concurrency evidence.",
+      "SKIP: real database concurrency tests need initdb, pg_ctl and psql; set PHASE1_POSTGRES_BIN. PGlite is not concurrency evidence.",
     );
     return;
   }
@@ -161,10 +166,20 @@ export async function runRefundConcurrencyTests() {
       "create role anon; create role authenticated; create role service_role; create schema storage; create table storage.buckets(id text primary key,name text,public boolean)",
     );
     const migrations = new URL("../migrations/", import.meta.url);
+    let legacy;
     for (const name of (await readdir(migrations))
       .filter((name) => name.endsWith(".sql"))
       .sort()) {
+      if (name === "20261106233441_atomic_email_consent.sql")
+        legacy = await seedConsentMigration(observer);
       await observer.query(await readFile(new URL(name, migrations), "utf8"));
+    }
+    await testConsentDatabase({ observer, first, second, legacy });
+    if (consentOnly) {
+      console.log(
+        `PASS: focused consent regressions (${version}); private disposable cluster, no hosted connection.`,
+      );
+      return;
     }
     const secondPid = Number(await second.query("select pg_backend_pid()"));
     async function owner() {

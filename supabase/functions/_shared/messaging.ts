@@ -101,8 +101,14 @@ async function render(
       scope === "confirm"
         ? Math.floor(Date.parse(job.created_at) / 1000)
         : issued;
+    const requestId =
+      scope === "confirm" && job.dedupe_key.startsWith("capture:")
+        ? job.dedupe_key.slice("capture:".length)
+        : undefined;
+    if (scope === "confirm" && !uuid(requestId))
+      throw new EmailProviderError("invalid_confirmation_request", false);
     earliestExpiry = Math.min(earliestExpiry, linkIssued + ttl);
-    return `${config.origin}/#${scope}=${encodeURIComponent(await deps.sign(scope, sub, ttl, linkIssued))}`;
+    return `${config.origin}/#${scope}=${encodeURIComponent(await deps.sign(scope, sub, ttl, linkIssued, requestId))}`;
   };
   if (job.kind === "capture" || job.kind === "transactional_test") {
     if (job.payload.magnet === true || job.kind === "transactional_test") {

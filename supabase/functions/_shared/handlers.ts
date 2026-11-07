@@ -411,23 +411,24 @@ export async function manageConsent(_req: Request, b: Record<string, unknown>) {
     b.token,
     b.action === "confirm" ? "confirm" : "unsubscribe",
   );
-  // A confirmation issued before a later revocation cannot re-enable marketing.
-  if (b.action === "confirm") {
-    const { data: revoked, error } = await db()
-      .from("consent_records")
-      .select("id")
-      .eq("fan_id", claims.sub)
-      .eq("status", "revoked")
-      .gte("captured_at", new Date(claims.iat * 1000).toISOString())
-      .limit(1);
-    if (error) throw new Error("database_unavailable");
-    if (revoked?.length) throw new Error("unauthorized");
+  if (b.action === "unsubscribe") {
+    // This signature works before and after the atomic-consent migration. The
+    // compatibility function delegates to the same locked revocation operation.
+    await rpc<void>("update_email_consent", {
+      p_artist: catalog.artistId,
+      p_fan: claims.sub,
+      p_status: "revoked",
+    });
+  } else {
+    if (!uuid(claims.actionId)) throw new Error("unauthorized");
+    const updated = await rpc<boolean>("update_email_consent", {
+      p_artist: catalog.artistId,
+      p_fan: claims.sub,
+      p_status: "granted",
+      p_request: claims.actionId,
+    });
+    if (!updated) throw new Error("unauthorized");
   }
-  await rpc("update_email_consent", {
-    p_artist: catalog.artistId,
-    p_fan: claims.sub,
-    p_status: b.action === "confirm" ? "granted" : "revoked",
-  });
   return {
     message:
       b.action === "confirm"

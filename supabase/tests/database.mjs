@@ -66,10 +66,11 @@ assert.equal(
     .allowed,
   false,
 );
-await db.query("select update_email_consent($1,$2,$3)", [
+await db.query("select update_email_consent($1,$2,$3,$4)", [
   artist,
   fan,
   "granted",
+  request,
 ]);
 assert.equal(
   (await db.query("select email_permission($1) as allowed", [fan])).rows[0]
@@ -233,10 +234,16 @@ const reminderFan = (
     [artist],
   )
 ).rows[0].id;
-await db.query("select update_email_consent($1,$2,$3)", [
+const reminderRequest = crypto.randomUUID();
+await db.query(
+  "select capture_fan($1,$2,'reminder@example.com','en','support_modal','{}','{}',true,'reminder')",
+  [artist, reminderRequest],
+);
+await db.query("select update_email_consent($1,$2,$3,$4)", [
   artist,
   reminderFan,
   "granted",
+  reminderRequest,
 ]);
 const abandoned = crypto.randomUUID();
 await db.query(

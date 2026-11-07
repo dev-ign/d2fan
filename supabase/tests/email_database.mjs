@@ -220,7 +220,15 @@ export async function testEmailDatabase(db) {
   );
 
   // Marketing cannot be claimed with a missing postal/disabled marketing gate.
-  await q("select update_email_consent('jona-ferreira',$1,'granted')", [fan]);
+  const consentRequest = crypto.randomUUID();
+  await q(
+    "select capture_fan('jona-ferreira',$1,'email-tests@example.com','en','support_modal','{}','{}',true,'email-test-consent')",
+    [consentRequest],
+  );
+  await q("select update_email_consent('jona-ferreira',$1,'granted',$2)", [
+    fan,
+    consentRequest,
+  ]);
   const welcome = await row("select * from delivery_jobs where dedupe_key=$1", [
     `welcome:${fan}`,
   ]);

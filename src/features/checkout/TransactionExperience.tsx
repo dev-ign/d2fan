@@ -184,7 +184,14 @@ export function TransactionExperience({
     setMessage(
       result.success
         ? { copy: mode === "confirm" ? "consentConfirmed" : "unsubscribed" }
-        : { error: result.error.message },
+        : result.error.code === "unauthorized"
+          ? {
+              copy:
+                mode === "confirm"
+                  ? "confirmationInvalid"
+                  : "unsubscribeInvalid",
+            }
+          : { error: result.error.message },
     );
     setBusy(false);
   }

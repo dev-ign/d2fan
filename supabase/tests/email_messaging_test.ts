@@ -160,8 +160,14 @@ function harness(overrides: Partial<EmailStore> = {}) {
     store,
     get,
     now: () => now,
-    sign: async (scope: string, _sub: string, ttl: number, issued?: number) => {
-      calls.push({ type: "sign", scope, ttl, issued });
+    sign: async (
+      scope: string,
+      _sub: string,
+      ttl: number,
+      issued?: number,
+      actionId?: string,
+    ) => {
+      calls.push({ type: "sign", scope, ttl, issued, actionId });
       return "signed-test-capability";
     },
     rewardReady: async () => {},
@@ -672,24 +678,42 @@ Deno.test(
   },
 );
 Deno.test(
-  "confirmation and unsubscribe handlers require scoped explicit action and refuse older confirmations after revocation",
+  "consent handlers use one atomic RPC with scoped, request-bound authorization",
   async () => {
     Deno.env.set("SUPABASE_URL", "https://database.invalid");
     Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "dummy");
     Deno.env.set("ACCESS_TOKEN_SECRET", secret);
     const original = fetch;
-    let revoked = false;
+    const request = crypto.randomUUID(),
+      staleRequest = crypto.randomUUID();
+    const authorizations = new Map([
+      [request, "pending"],
+      [staleRequest, "pending"],
+    ]);
     const updates: string[] = [];
+    let confirmationAvailable = true;
     globalThis.fetch = (input, init) => {
-      if (String(input).includes("consent_records"))
-        return Promise.resolve(
-          Response.json(revoked ? [{ id: "revoked" }] : []),
-        );
       if (String(input).includes("rpc/update_email_consent")) {
         const b = JSON.parse(String(init?.body));
+        assert(b.p_artist === "jona-ferreira" && b.p_fan === "fan");
         updates.push(b.p_status);
-        revoked = b.p_status === "revoked";
-        return Promise.resolve(Response.json(null));
+        if (b.p_status === "revoked") {
+          assert(!Object.hasOwn(b, "p_request"));
+          for (const [id, status] of authorizations)
+            if (status === "pending") authorizations.set(id, "revoked");
+          return Promise.resolve(Response.json(null));
+        }
+        assert(typeof b.p_request === "string");
+        if (!confirmationAvailable)
+          return Promise.resolve(
+            Response.json(
+              { code: "PGRST202", message: "schema cache not ready" },
+              { status: 404 },
+            ),
+          );
+        const allowed = authorizations.get(b.p_request) === "pending";
+        if (allowed) authorizations.set(b.p_request, "confirmed");
+        return Promise.resolve(Response.json(allowed));
       }
       return Promise.reject(new Error("unexpected mocked request"));
     };
@@ -700,7 +724,10 @@ Deno.test(
       exp: Math.floor(Date.now() / 1000) + 172800,
     };
     try {
-      const confirm = await signToken({ ...claims, scope: "confirm" }, secret),
+      const confirm = await signToken(
+          { ...claims, scope: "confirm", actionId: request },
+          secret,
+        ),
         unsubscribe = await signToken(
           { ...claims, scope: "unsubscribe" },
           secret,
@@ -709,15 +736,26 @@ Deno.test(
         action: "confirm",
         token: confirm,
       });
-      await manageConsent(new Request("https://worker"), {
-        action: "unsubscribe",
-        token: unsubscribe,
-      });
       await rejects(
         () =>
           manageConsent(new Request("https://worker"), {
             action: "confirm",
             token: confirm,
+          }),
+        "unauthorized",
+      );
+      await manageConsent(new Request("https://worker"), {
+        action: "unsubscribe",
+        token: unsubscribe,
+      });
+      await rejects(
+        async () =>
+          manageConsent(new Request("https://worker"), {
+            action: "confirm",
+            token: await signToken(
+              { ...claims, scope: "confirm", actionId: staleRequest },
+              secret,
+            ),
           }),
         "unauthorized",
       );
@@ -729,7 +767,58 @@ Deno.test(
           }),
         "unauthorized",
       );
-      assert(updates.join(",") === "granted,revoked");
+      const newRequest = crypto.randomUUID();
+      authorizations.set(newRequest, "pending");
+      await manageConsent(new Request("https://worker"), {
+        action: "confirm",
+        token: await signToken(
+          { ...claims, scope: "confirm", actionId: newRequest },
+          secret,
+        ),
+      });
+      assert(updates.join(",") === "granted,granted,revoked,granted,granted");
+      const callsBeforeInvalidTokens = updates.length;
+      for (const invalid of [
+        await signToken({ ...claims, scope: "confirm" }, secret),
+        await signToken(
+          { ...claims, scope: "confirm", actionId: request, exp: 1 },
+          secret,
+        ),
+        await signToken(
+          {
+            ...claims,
+            scope: "confirm",
+            actionId: request,
+            artist: "other-artist",
+          },
+          secret,
+        ),
+        `${confirm}tampered`,
+      ]) {
+        await rejects(
+          () =>
+            manageConsent(new Request("https://worker"), {
+              action: "confirm",
+              token: invalid,
+            }),
+          "unauthorized",
+        );
+      }
+      assert(updates.length === callsBeforeInvalidTokens);
+      confirmationAvailable = false;
+      const beforeUnavailable = updates.length;
+      await rejects(
+        () =>
+          manageConsent(new Request("https://worker"), {
+            action: "confirm",
+            token: confirm,
+          }),
+        "database_unavailable",
+      );
+      assert(
+        updates.length === beforeUnavailable + 1,
+        "confirmation retried through an unbound legacy RPC",
+      );
       const expired = await signToken(
         { ...claims, scope: "access", exp: 1 },
         secret,
@@ -837,9 +926,11 @@ Deno.test(
   async () => {
     const h = harness();
     const requested = now - 3600_000;
+    const request = crypto.randomUUID();
     await deliverEmailJob(
       job({
         payload: { confirm: true },
+        dedupe_key: `capture:${request}`,
         created_at: new Date(requested).toISOString(),
       }),
       readEmailConfig(get),
@@ -850,6 +941,7 @@ Deno.test(
         (call) =>
           call.type === "sign" &&
           call.scope === "confirm" &&
+          call.actionId === request &&
           call.issued === Math.floor(requested / 1000),
       ),
     );
@@ -860,10 +952,29 @@ Deno.test(
       },
     });
     await deliverEmailJob(
-      job({ payload: { confirm: true } }),
+      job({ payload: { confirm: true }, dedupe_key: `capture:${request}` }),
       readEmailConfig(get),
       old.deps,
     );
     assert(!old.calls.some((call) => call.type === "send"));
+    const invalid = harness();
+    await deliverEmailJob(
+      job({ payload: { confirm: true } }),
+      readEmailConfig(get),
+      invalid.deps,
+    );
+    assert(
+      !invalid.calls.some((call) =>
+        ["sign", "begin", "send"].includes(call.type),
+      ),
+    );
+    assert(
+      invalid.calls.some(
+        (call) =>
+          call.type === "finish" &&
+          call.outcome === "failed" &&
+          call.error === "invalid_confirmation_request",
+      ),
+    );
   },
 );

@@ -257,7 +257,7 @@ test("release capture preserves language, consent confirmation and backend signe
     name: "Ya eres parte de La Cultura.",
   });
   await expect(confirmation).toContainText(
-    "Se requiere una confirmación por correo",
+    "Pediste novedades musicales. La confirmación por correo está en cola; las novedades requieren tu confirmación por separado.",
   );
   await expect(
     confirmation.getByRole("link", { name: "Descargar wallpaper de Acción" }),

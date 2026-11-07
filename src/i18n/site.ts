@@ -215,6 +215,10 @@ export const english = {
       "Your recovery request was received. Email delivery status is unavailable.",
     consentConfirmed: "Your music updates are confirmed.",
     unsubscribed: "You have unsubscribed from music updates.",
+    confirmationInvalid:
+      "This confirmation link is no longer valid. To request music updates, sign up again and choose email updates.",
+    unsubscribeInvalid:
+      "This unsubscribe link has expired or is invalid. Your preferences have not changed.",
   },
 };
 
@@ -440,5 +444,9 @@ export const spanish: SiteMessages = {
       "Recibimos tu solicitud de recuperación. El estado del envío de correo no está disponible.",
     consentConfirmed: "Confirmaste las novedades musicales.",
     unsubscribed: "Cancelaste tu suscripción a las novedades musicales.",
+    confirmationInvalid:
+      "Este enlace de confirmación ya no es válido. Para pedir novedades musicales, vuelve a registrarte y elige recibir novedades por correo.",
+    unsubscribeInvalid:
+      "Este enlace para cancelar la suscripción caducó o no es válido. Tus preferencias no han cambiado.",
   },
 };
