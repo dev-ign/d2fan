@@ -4,6 +4,7 @@
 // directory containing initdb, pg_ctl and psql (for example PostgreSQL 17 in CI).
 import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -12,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import { testEmailConcurrency } from "./email_database.mjs";
 import {
   seedConsentMigration,
+  testConsentMigrationBoundary,
   testConsentDatabase,
 } from "./consent_database.mjs";
 
@@ -25,7 +27,7 @@ const localEnv = Object.fromEntries(
   Object.entries(process.env).filter(([name]) => !name.startsWith("PG")),
 );
 
-function connect(socket) {
+function connect(socket, user = "consent_test_owner") {
   const child = spawn(
     binary("psql"),
     [
@@ -38,7 +40,7 @@ function connect(socket) {
       "-p",
       "5432",
       "-U",
-      "refund_test_owner",
+      user,
       "-d",
       "postgres",
       "-v",
@@ -79,6 +81,10 @@ function connect(socket) {
     query(sql) {
       assert.ok(!pending, "only one query at a time per psql session");
       assert.ok(!exited, "psql session is open");
+      if (process.env.PHASE1_SQL_TRACE)
+        appendFileSync(process.env.PHASE1_SQL_TRACE, `${sql};\n`, {
+          mode: 0o600,
+        });
       const promise = new Promise((resolve, reject) => {
         const marker = `done_${crypto.randomUUID()}`;
         const timer = setTimeout(() => {
@@ -158,23 +164,49 @@ export async function runRefundConcurrencyTests() {
       { env: localEnv },
     );
     started = true;
+    const bootstrap = connect(directory, "refund_test_owner");
+    clients.push(bootstrap);
+    // Exercise the migration with CREATEROLE and database ownership, not a
+    // superuser. A genuine service-role login is needed for SET ROLE denials.
+    await bootstrap.query(
+      "create role anon; create role authenticated; create role service_role login bypassrls; create role authenticator noinherit; grant anon,authenticated,service_role to authenticator; create role consent_test_owner login createrole; alter database postgres owner to consent_test_owner; grant anon,authenticated,service_role to consent_test_owner",
+    );
     const observer = connect(directory);
     const first = connect(directory);
     const second = connect(directory);
     clients.push(observer, first, second);
     await observer.query(
-      "create role anon; create role authenticated; create role service_role; create schema storage; create table storage.buckets(id text primary key,name text,public boolean)",
+      "create schema storage; create table storage.buckets(id text primary key,name text,public boolean)",
+    );
+    // Exercise explicit service-role function grants from Supabase-style defaults,
+    // rather than relying only on PostgreSQL's PUBLIC EXECUTE default.
+    await observer.query(
+      "alter default privileges grant execute on functions to service_role",
     );
     const migrations = new URL("../migrations/", import.meta.url);
     let legacy;
     for (const name of (await readdir(migrations))
       .filter((name) => name.endsWith(".sql"))
       .sort()) {
-      if (name === "20261106233441_atomic_email_consent.sql")
+      const migration = await readFile(new URL(name, migrations), "utf8");
+      if (name === "20261106233441_atomic_email_consent.sql") {
         legacy = await seedConsentMigration(observer);
-      await observer.query(await readFile(new URL(name, migrations), "utf8"));
+        await testConsentMigrationBoundary({
+          observer,
+          first,
+          second,
+          migration,
+          openClient(user) {
+            const client = connect(directory, user);
+            clients.push(client);
+            return client;
+          },
+        });
+      } else await observer.query(migration);
     }
-    await testConsentDatabase({ observer, first, second, legacy });
+    const service = connect(directory, "service_role");
+    clients.push(service);
+    await testConsentDatabase({ observer, first, second, service, legacy });
     if (consentOnly) {
       console.log(
         `PASS: focused consent regressions (${version}); private disposable cluster, no hosted connection.`,
