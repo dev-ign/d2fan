@@ -1056,6 +1056,7 @@ html[data-experience="home"] {
   gap: 6px;
 }
 .stream-links .stream-link {
+  position: relative;
   display: grid;
   place-items: center;
   width: 44px;
@@ -1066,6 +1067,39 @@ html[data-experience="home"] {
 .stream-links .stream-link:hover,
 .stream-links .stream-link:focus-visible {
   background: var(--state-hover);
+}
+.stream-tooltip {
+  position: absolute;
+  z-index: 1;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 3px 8px;
+  border-radius: var(--radius-control);
+  background: var(--ink-2);
+  color: var(--bone-0);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity var(--duration-feedback);
+}
+.stream-tooltip[data-visible="true"] {
+  visibility: visible;
+  opacity: 1;
+}
+.stream-tooltip::after {
+  /* Keep the tooltip reachable when the pointer crosses the gap. */
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 9px;
+  content: "";
+}
+@media (prefers-reduced-motion: reduce) {
+  .stream-tooltip {
+    transition: none;
+  }
 }
 .preview-action {
   display: inline-flex;

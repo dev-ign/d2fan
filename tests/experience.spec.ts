@@ -167,6 +167,7 @@ test("the featured catalog and every release page share the same streaming desti
     await expect(menu.getByRole("menuitem")).toHaveText(
       platforms.map((platform) => platformNames[platform]),
     );
+    await expect(menu.locator(".stream-tooltip")).toHaveCount(0);
     await expect(menu.getByRole("menuitem").first()).toBeInViewport();
     for (const platform of platforms) {
       const item = menu.getByRole("menuitem", {
@@ -214,6 +215,9 @@ test("the featured catalog and every release page share the same streaming desti
       await expect(item).toHaveAccessibleName(
         `Listen to ${release.title} on ${platformNames[platform]}`,
       );
+      await expect(item.locator(".stream-tooltip")).toHaveText(
+        platformNames[platform],
+      );
       await expect(item).toHaveAttribute(
         "href",
         release.streamingLinks[platform]!,
@@ -233,6 +237,141 @@ test("the featured catalog and every release page share the same streaming desti
         .getByRole("link", { name: "Privacy Policy" }),
     ).toHaveAttribute("href", "/privacy");
   }
+});
+
+test("streaming tooltips fit above the icons without moving the link row", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/music/shorty");
+  const group = page.getByRole("group", { name: "Listen to this release" });
+  const links = group.getByRole("link");
+  await expect(links).toHaveCount(streamingPlatforms.length);
+  const tooltips = group.locator(".stream-tooltip:visible");
+  const linkPositions = () =>
+    links.evaluateAll((items) =>
+      items.map((item) => item.getBoundingClientRect().toJSON()),
+    );
+
+  for (const width of [375, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => document.fonts.ready);
+    const positions = await linkPositions();
+    for (const platform of ["Spotify", "Amazon Music", "TIDAL"]) {
+      const link = group.getByRole("link", {
+        name: `Listen to Shorty on ${platform}`,
+      });
+      await link.hover();
+      await expect(tooltips).toHaveText(platform);
+      const anchor = (await link.boundingBox())!;
+      const label = (await tooltips.boundingBox())!;
+      expect(label.x).toBeGreaterThanOrEqual(0);
+      expect(label.x + label.width).toBeLessThanOrEqual(width);
+      expect(label.y).toBeGreaterThanOrEqual(0);
+      expect(anchor.y - label.y - label.height).toBeCloseTo(7, 0);
+      expect(label.x + label.width / 2).toBeCloseTo(
+        anchor.x + anchor.width / 2,
+        0,
+      );
+      expect(await linkPositions()).toEqual(positions);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBe(width);
+    }
+    await page.locator("#release-title").hover();
+    await expect(tooltips).toHaveCount(0);
+  }
+
+  await links.first().hover();
+  await expect(tooltips).toHaveCSS("transition-property", "none");
+  const label = (await tooltips.boundingBox())!;
+  await page.mouse.move(label.x + label.width / 2, label.y + label.height / 2, {
+    steps: 8,
+  });
+  await expect(tooltips).toHaveText("Spotify");
+  await page.keyboard.press("Escape");
+  await expect(tooltips).toHaveCount(0);
+});
+
+test("streaming tooltips follow keyboard focus and dismiss on Escape and Enter", async ({
+  page,
+}) => {
+  const destination = releases[0].streamingLinks.tidal!;
+  await page
+    .context()
+    .route(destination, (route) => route.fulfill({ body: "TIDAL" }));
+  await page.goto("/music/shorty");
+  const group = page.getByRole("group", { name: "Listen to this release" });
+  const tooltips = group.locator(".stream-tooltip:visible");
+  await group.getByRole("link").first().focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(tooltips).toHaveCount(0);
+
+  for (const platform of streamingPlatforms) {
+    await page.keyboard.press("Tab");
+    const link = group.getByRole("link", {
+      name: `Listen to Shorty on ${platformNames[platform]}`,
+    });
+    await expect(link).toBeFocused();
+    await expect(link).toHaveCSS("outline-style", "solid");
+    await expect(tooltips).toHaveText(platformNames[platform]);
+    await expect(tooltips).toHaveAttribute("aria-hidden", "true");
+  }
+
+  const tidal = group.getByRole("link", { name: "Listen to Shorty on TIDAL" });
+  await page.keyboard.press("Escape");
+  await expect(tooltips).toHaveCount(0);
+  await expect(tidal).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Play preview", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(tooltips).toHaveText("TIDAL");
+  const [popup] = await Promise.all([
+    page.waitForEvent("popup"),
+    page.keyboard.press("Enter"),
+  ]);
+  await expect(popup).toHaveURL(destination);
+  await expect(tooltips).toHaveCount(0);
+});
+
+test.describe("streaming icons on touch screens", () => {
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+
+  test("one tap opens the service while keyboard focus still shows the brand name", async ({
+    page,
+  }) => {
+    const destination = releases[0].streamingLinks.spotify!;
+    await page
+      .context()
+      .route(destination, (route) => route.fulfill({ body: "Spotify" }));
+    await page.addInitScript(() => localStorage.setItem("jona:locale", "es"));
+    await page.goto("/music/shorty");
+    const group = page.getByRole("group", { name: "Escucha este lanzamiento" });
+    const spotify = group.getByRole("link", {
+      name: "Escucha Shorty en Spotify",
+    });
+    const tooltip = spotify.locator(".stream-tooltip");
+    await expect(tooltip).toBeHidden();
+    const [popup] = await Promise.all([
+      page.waitForEvent("popup"),
+      spotify.tap(),
+    ]);
+    await expect(popup).toHaveURL(destination);
+    await expect(tooltip).toBeHidden();
+    await popup.close();
+    await spotify.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(spotify).toBeFocused();
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText("Spotify");
+  });
 });
 
 test("release indicators slide in one row at desktop, tablet and mobile widths", async ({
