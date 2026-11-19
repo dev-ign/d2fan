@@ -203,11 +203,11 @@ test("release capture keeps listening open, preserves first touch and retries wi
   );
   await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
   const confirmation = page.getByRole("region", {
-    name: "You're in La Cultura.",
+    name: "Wallpaper request saved.",
   });
   await expect(confirmation).toBeVisible();
   await expect(confirmation.getByRole("heading")).toBeFocused();
-  await expect(confirmation).toContainText("You didn’t request music updates");
+  await expect(confirmation).toContainText("You requested the wallpaper only");
   await expect(confirmation).not.toContainText(
     /exclusive|email (sent|delivered)|check your inbox/i,
   );
@@ -257,10 +257,10 @@ test("release capture preserves language, consent confirmation and backend signe
   await page.locator(".capture-form").getByRole("checkbox").check();
   await page.getByRole("button", { name: "ÚNETE A LA CULTURA" }).click();
   const confirmation = page.getByRole("region", {
-    name: "Ya eres parte de La Cultura.",
+    name: "Solicitud de novedades recibida.",
   });
   await expect(confirmation).toContainText(
-    "Pediste novedades musicales. La confirmación por correo está en cola; las novedades requieren tu confirmación por separado.",
+    "El correo de confirmación está en cola. Cuando llegue, ábrelo y selecciona Confirmar solicitud para suscribirte.",
   );
   await expect(
     confirmation.getByRole("link", { name: "Descargar wallpaper de Acción" }),

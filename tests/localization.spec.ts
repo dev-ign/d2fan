@@ -187,7 +187,7 @@ test("language changes preserve playback, release selection, scroll context and 
   await expect(form.getByRole("checkbox")).toBeChecked();
   await form.getByRole("button", { name: "ÚNETE A LA CULTURA" }).click();
   await expect(
-    page.getByRole("heading", { name: "Ya eres parte de La Cultura." }),
+    page.getByRole("heading", { name: "Solicitud de novedades recibida." }),
   ).toBeVisible();
   expect(payload).toMatchObject({
     language: "es",
@@ -196,7 +196,7 @@ test("language changes preserve playback, release selection, scroll context and 
   });
   await switchLocale(page, "en");
   await expect(
-    page.getByRole("heading", { name: "You're in La Cultura." }),
+    page.getByRole("heading", { name: "Music updates requested." }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Download Acción wallpaper" }),
@@ -428,7 +428,7 @@ test("validation and failed requests translate without clearing drafts or reusin
   );
   await form.getByRole("button", { name: "ÚNETE A LA CULTURA" }).click();
   await expect(
-    page.getByRole("heading", { name: "Ya eres parte de La Cultura." }),
+    page.getByRole("heading", { name: "Solicitud del wallpaper guardada." }),
   ).toBeVisible();
   expect(calls.map((c) => c.language)).toEqual(["en", "es"]);
   expect(calls[0].requestId).not.toBe(calls[1].requestId);

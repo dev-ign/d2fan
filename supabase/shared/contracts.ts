@@ -88,4 +88,7 @@ export type AnalyticsEvent =
   | "InitiateCheckout"
   | "Purchase"
   | "VaultUnlock"
-  | "DSPClick";
+  | "DSPClick"
+  | "MusicPreviewStarted"
+  | "FanSignupViewed"
+  | "FanSignupStarted";

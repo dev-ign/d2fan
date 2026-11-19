@@ -69,7 +69,7 @@ for (const width of [390, 1440]) {
     await page.locator(".stay-form").getByRole("checkbox").check();
     await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
     const confirmation = page.getByRole("region", {
-      name: "You're in La Cultura.",
+      name: "Music updates requested.",
     });
     await expect(confirmation).toContainText("saved");
     await expect(confirmation).toContainText("disabled");
@@ -167,15 +167,15 @@ test("failed capture retains details, unchecked consent and idempotent retry bef
   ).not.toBeChecked();
   await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
   const confirmation = page.getByRole("region", {
-    name: "You're in La Cultura.",
+    name: "Wallpaper request saved.",
   });
   await expect(confirmation).toBeVisible();
   await expect(page.locator(".stay-form")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "You're in La Cultura." }),
+    page.getByRole("heading", { name: "Wallpaper request saved." }),
   ).toBeFocused();
-  await expect(confirmation).toContainText("still being prepared");
-  await expect(confirmation).toContainText("You didn’t request music updates");
+  await expect(confirmation).toContainText("Your wallpaper email is queued");
+  await expect(confirmation).toContainText("You requested the wallpaper only");
   await expect(confirmation.getByRole("link")).toHaveCount(0);
   expect(requests).toHaveLength(2);
   expect(requests[0].requestId).toBe(requests[1].requestId);
@@ -207,10 +207,10 @@ test("available reward uses the backend signed URL, without claiming queued emai
   await page.locator(".stay-form").getByRole("checkbox").check();
   await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
   const confirmation = page.getByRole("region", {
-    name: "You're in La Cultura.",
+    name: "Music updates requested.",
   });
   await expect(confirmation).toContainText(
-    "You requested music updates. A confirmation email is queued; marketing requires your separate confirmation.",
+    "Your confirmation email is queued. When it arrives, open it and select Confirm request to subscribe.",
   );
   await expect(confirmation).not.toContainText(
     /email (was |has been )?(sent|delivered)|check your (email|inbox)/i,
@@ -251,18 +251,17 @@ test("saved contact with unavailable email and reward gets an honest responsive 
     expect(emailBounds!.width).toBeGreaterThanOrEqual(200);
     await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
     const confirmation = page.getByRole("region", {
-      name: "You're in La Cultura.",
+      name: "Wallpaper request saved.",
     });
-    await expect(confirmation).toContainText("Your contact is saved.");
     await expect(confirmation).toContainText(
-      "It isn’t available to download yet.",
+      "The wallpaper is temporarily unavailable.",
     );
     await expect(confirmation).not.toContainText(
       /check your (email|inbox)|email (sent|delivered)/i,
     );
     await expect(confirmation.getByRole("link")).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "You're in La Cultura." }),
+      page.getByRole("heading", { name: "Wallpaper request saved." }),
     ).toBeFocused();
     expect(
       await page.evaluate(
@@ -372,3 +371,56 @@ test("navigation clicks and cross-route anchors use the same header offset", asy
     }
   }
 });
+
+for (const width of [375, 390, 768, 1024, 1440]) {
+  test(`fan CTAs lead to one keyboard-reachable signup at ${width}px`, async ({
+    page,
+  }) => {
+    const es = width === 375 || width === 768 || width === 1440;
+    await page.setViewportSize({ width, height: width < 768 ? 820 : 920 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    if (es)
+      await page.addInitScript(() => localStorage.setItem("jona:locale", "es"));
+    await page.goto("/");
+    const homeCta = page.getByRole("link", {
+      name: es ? "Entra a la Cultura" : "Join the Culture",
+    });
+    await expect(homeCta).toBeInViewport();
+    await homeCta.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#stay-close")).toBeFocused();
+    await expect(
+      page.locator(".capture-form").getByRole("checkbox"),
+    ).not.toBeChecked();
+
+    const slug = width === 375 ? "cafe" : width === 768 ? "accion" : "shorty";
+    await page.goto(`/music/${slug}`);
+    const preview = page.locator(".preview-action");
+    await expect(preview).toBeVisible();
+    await preview.click();
+    await expect(preview).toHaveText(es ? "Pausar adelanto" : "Pause preview");
+    const releaseCta = page.getByRole("link", {
+      name: es
+        ? "Consigue el wallpaper gratis de Acción"
+        : "Get the free Acción wallpaper",
+    });
+    await releaseCta.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#release-signup")).toBeFocused();
+    await expect(page.locator(".capture-form")).toHaveCount(1);
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#release-email")).toBeFocused();
+    await expect(preview).toHaveText(es ? "Pausar adelanto" : "Pause preview");
+    const checkbox = page.locator(".capture-form").getByRole("checkbox");
+    await expect(checkbox).not.toBeChecked();
+    await expect(checkbox).toHaveAccessibleDescription(/optional|opcional/);
+    await expect(
+      page.locator(".capture-form").getByRole("link", {
+        name: es ? "Política de privacidad" : "Privacy Policy",
+      }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  });
+}

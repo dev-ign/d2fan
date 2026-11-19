@@ -71,6 +71,12 @@ export function TransactionExperience({
   const [cancelled] = useState(
     () => new URLSearchParams(location.search).get("checkout") === "cancel",
   );
+  const confirmed =
+    message && "copy" in message && message.copy === "consentConfirmed";
+  const confirmationStatus = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (confirmed) confirmationStatus.current?.focus();
+  }, [confirmed]);
   const displayMessage = !message
     ? ""
     : "copy" in message
@@ -235,7 +241,13 @@ export function TransactionExperience({
       </button>
       {open && context && (
         <Dialog
-          title={t.transaction.dialog}
+          title={
+            context.mode === "confirm"
+              ? t.transaction.confirmTitle
+              : context.mode === "unsubscribe"
+                ? t.transaction.unsubscribeTitle
+                : t.transaction.dialog
+          }
           onClose={() => {
             setOpen(false);
             try {
@@ -322,7 +334,8 @@ export function TransactionExperience({
               {busy ? t.transaction.checking : t.transaction.open}
             </button>
           )}
-          {(context.mode === "confirm" || context.mode === "unsubscribe") && (
+          {((context.mode === "confirm" && !confirmed) ||
+            context.mode === "unsubscribe") && (
             <button
               className="button button--lime"
               type="button"
@@ -347,7 +360,9 @@ export function TransactionExperience({
               </a>
             </p>
           ))}
-          <p role="status">{displayMessage}</p>
+          <p ref={confirmationStatus} tabIndex={-1} role="status">
+            {displayMessage}
+          </p>
         </Dialog>
       )}
       {recover && (

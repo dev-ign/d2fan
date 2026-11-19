@@ -91,24 +91,33 @@ export const analytics = {
         location.hash,
       )
     )
-      return;
+      return false;
     const data: Record<string, string | number> = {};
-    for (const key of ["value", "currency", "release_slug", "platform"])
+    for (const key of [
+      "value",
+      "currency",
+      "release_slug",
+      "platform",
+      "placement",
+      "language",
+    ])
       if (details[key] !== undefined) data[key] = details[key];
-    const fbq = pixel();
-    fbq?.(
-      ["VaultUnlock", "DSPClick"].includes(event) ? "trackCustom" : "track",
-      event,
-      data,
-      { eventID: id },
-    );
-    // Lead/checkout/purchase/unlock CAPI comes from the durable server outbox.
-    if (event === "PageView" || event === "DSPClick")
-      void api("analytics-event", {
+    try {
+      const fbq = pixel();
+      if (!fbq) return false;
+      // Keep anonymous site activity on the browser Pixel. The legacy
+      // analytics-event function includes the visitor's IP in its Meta payload.
+      fbq(
+        ["PageView", "Lead", "InitiateCheckout", "Purchase"].includes(event)
+          ? "track"
+          : "trackCustom",
         event,
-        eventId: id,
-        consent: true,
-        release_slug: data.release_slug,
-      });
+        data,
+        { eventID: id },
+      );
+      return true;
+    } catch {
+      return false;
+    }
   },
 };

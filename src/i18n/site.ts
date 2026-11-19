@@ -130,9 +130,13 @@ export const english = {
   stay: {
     first: "STAY",
     second: "CLOSE.",
+    heroCta: "Join the Culture",
+    rewardCta: "Get the free Acción wallpaper",
     intro:
-      "Sign up to request new music and release updates from Jona Ferreira by email.",
-    incentive: "Exclusive Acción wallpaper when you join.",
+      "Get closer to Jona Ferreira’s music. Take home exclusive artwork and choose whether to hear about new releases by email.",
+    releaseIntro:
+      "Take a piece of Acción with you. Get the exclusive wallpaper and choose whether to get release updates from Jona.",
+    incentive: "Free, exclusive Acción wallpaper.",
     footer: "Jona Ferreira — independent music, direct to you.",
   },
   forms: {
@@ -140,7 +144,7 @@ export const english = {
     placeholder: "you@email.com",
     join: "JOIN LA CULTURA",
     disclosure:
-      "Joining saves your email and requests the wallpaper when available. Music updates are optional.",
+      "We use your email to fulfill the wallpaper request. The checkbox is optional. If you select it, confirm music updates by email.",
     channel: "Delivery channel",
     email: "Email",
     whatsapp: "WhatsApp · coming soon",
@@ -170,7 +174,7 @@ export const english = {
       "When checkout is available, Stripe handles payment details. We keep the purchase, contact and access records needed to deliver downloads, confirm payment and help you recover access. Supabase stores site records and hosts private files. The site verifies access before issuing temporary links to those files.",
     measurementTitle: "Browser settings and measurement",
     measurement:
-      "The site remembers your language and measurement choice in your browser. If you allow campaign measurement in the footer, the site can share activity with Meta, such as page visits, streaming link clicks and campaign conversions. You can turn measurement off there at any time. Music links take you to other services, whose privacy policies apply on their sites.",
+      "The site remembers your language and measurement choice in your browser. If you allow campaign measurement in the footer, the site can share activity with Meta, including page visits, preview starts, streaming link clicks, signup form views and starts, and campaign conversions. These events can include the release, page placement and site language. You can turn measurement off there at any time. Music links take you to other services, whose privacy policies apply on their sites.",
     retentionTitle: "Retention and your choices",
     retention:
       "We keep signup, consent and access records as needed to provide the services you request, honor unsubscribes, account for purchases and meet legal obligations. To request access, correction or deletion, reply to a site email or contact Jona Ferreira through the artist’s official Instagram account. We may verify that you control the email address before acting on a request.",
@@ -234,6 +238,8 @@ export const english = {
       "Email recovery is currently disabled. Existing download links still work; no recovery email is being sent.",
     recoveryUnknown:
       "Your recovery request was received. Email delivery status is unavailable.",
+    confirmTitle: "Confirm your music updates",
+    unsubscribeTitle: "Unsubscribe from music updates",
     consentConfirmed: "Your music updates are confirmed.",
     unsubscribed: "You have unsubscribed from music updates.",
     confirmationInvalid:
@@ -380,9 +386,13 @@ export const spanish: SiteMessages = {
   stay: {
     first: "MANTENTE",
     second: "CERCA.",
+    heroCta: "Entra a la Cultura",
+    rewardCta: "Consigue el wallpaper gratis de Acción",
     intro:
-      "Regístrate para solicitar música nueva y novedades sobre los lanzamientos de Jona Ferreira por correo.",
-    incentive: "Recibe un fondo de pantalla exclusivo de Acción al unirte.",
+      "Acércate a la música de Jona Ferreira. Llévate arte exclusivo y elige si quieres enterarte por correo de sus próximos lanzamientos.",
+    releaseIntro:
+      "Llévate un pedazo de Acción. Consigue el wallpaper exclusivo y elige si quieres recibir novedades de Jona por correo.",
+    incentive: "Wallpaper exclusivo de Acción, gratis.",
     footer: "Jona Ferreira — música independiente, directa para ti.",
   },
   forms: {
@@ -390,7 +400,7 @@ export const spanish: SiteMessages = {
     placeholder: "tu@correo.com",
     join: "ÚNETE A LA CULTURA",
     disclosure:
-      "Al unirte, guardamos tu correo y solicitamos el fondo de pantalla cuando esté disponible. Las novedades son opcionales.",
+      "Usamos tu correo para entregarte el wallpaper. Marcar la casilla es opcional. Si la marcas, confirma las novedades por correo.",
     channel: "Canal de entrega",
     email: "Correo",
     whatsapp: "WhatsApp · próximamente",
@@ -420,7 +430,7 @@ export const spanish: SiteMessages = {
       "Cuando los pagos están disponibles, Stripe gestiona los datos de pago. Conservamos los datos de compra, contacto y acceso necesarios para entregar descargas, confirmar el pago y ayudarte a recuperar el acceso. Supabase guarda los registros del sitio y aloja archivos privados. El sitio verifica tu acceso antes de generar enlaces temporales a esos archivos.",
     measurementTitle: "Preferencias del navegador y medición",
     measurement:
-      "El sitio recuerda tu idioma y tu preferencia de medición en el navegador. Si permites la medición de campañas en el pie de página, el sitio puede compartir actividad con Meta, como visitas, clics en enlaces de música y conversiones de campañas. Puedes desactivarla allí en cualquier momento. Los enlaces de música te llevan a otros servicios, que aplican sus propias políticas de privacidad.",
+      "El sitio recuerda tu idioma y tu preferencia de medición en el navegador. Si permites la medición de campañas en el pie de página, el sitio puede compartir actividad con Meta, como visitas, inicios de adelantos, clics en enlaces de música, vistas e inicios del formulario de registro y conversiones de campañas. Los eventos pueden incluir el lanzamiento, la ubicación del formulario o del control en el sitio y el idioma. Puedes desactivarla allí en cualquier momento. Los enlaces de música te llevan a otros servicios, que aplican sus propias políticas de privacidad.",
     retentionTitle: "Conservación de datos y tus opciones",
     retention:
       "Conservamos los datos de inscripción, consentimiento y acceso durante el tiempo necesario para prestar los servicios que solicitas, respetar las bajas, llevar la contabilidad de las compras y cumplir obligaciones legales. Para solicitar acceso, corrección o eliminación, responde a un correo del sitio o contacta a Jona Ferreira a través de la cuenta oficial de Instagram del artista. Es posible que verifiquemos que controlas la dirección de correo antes de tramitar tu solicitud.",
@@ -484,6 +494,8 @@ export const spanish: SiteMessages = {
       "La recuperación por correo está desactivada. Los enlaces de descarga existentes siguen funcionando; no se está enviando un correo de recuperación.",
     recoveryUnknown:
       "Recibimos tu solicitud de recuperación. El estado del envío de correo no está disponible.",
+    confirmTitle: "Confirma tus novedades musicales",
+    unsubscribeTitle: "Cancela las novedades musicales",
     consentConfirmed: "Confirmaste las novedades musicales.",
     unsubscribed: "Cancelaste tu suscripción a las novedades musicales.",
     confirmationInvalid:

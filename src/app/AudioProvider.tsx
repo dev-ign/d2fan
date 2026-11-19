@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { MusicRelease } from "../domain/types";
+import { analytics } from "../services/analytics";
 import { AudioContext } from "./audioContext";
 import type { AudioStatus } from "./audioContext";
 
 export function AudioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playRequestRef = useRef(0);
+  const previewStarted = useRef(false);
   const [release, setRelease] = useState<MusicRelease | null>(null);
   const [status, setStatus] = useState<AudioStatus>("idle");
   const [currentTime, setCurrentTime] = useState(0);
@@ -20,7 +22,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const onTime = () => setCurrentTime(audio.currentTime);
     const onDuration = () =>
       setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-    const onEnded = () => setStatus("paused");
+    const onEnded = () => {
+      previewStarted.current = false;
+      setStatus("paused");
+    };
     const onError = () => {
       setError("This preview could not be played.");
       setStatus("error");
@@ -51,15 +56,32 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audio.pause();
       audio.src = next.previewUrl;
       audio.currentTime = 0;
+      previewStarted.current = false;
       setCurrentTime(0);
       setDuration(0);
     }
     setRelease(next);
     setError(null);
     setStatus("loading");
+    const placement =
+      location.pathname === "/"
+        ? "home"
+        : location.pathname.startsWith("/music/")
+          ? "release_page"
+          : undefined;
+    const language = document.documentElement.lang;
     try {
       await audio.play();
-      if (request === playRequestRef.current) setStatus("playing");
+      if (request !== playRequestRef.current) return;
+      setStatus("playing");
+      if (!previewStarted.current) {
+        previewStarted.current = true;
+        analytics.track("MusicPreviewStarted", {
+          release_slug: next.slug,
+          ...(placement && { placement }),
+          language,
+        });
+      }
     } catch {
       if (request === playRequestRef.current) {
         setError(

@@ -25,7 +25,7 @@ export function useSectionMotion(ready: boolean | string) {
           const hero = root.querySelector(".hero");
           if (hero) {
             const entrance = hero.querySelectorAll(
-              "#hero-title, .hero-bio, .hero-read, .featured-card, .social-strip",
+              "#hero-title, .hero-bio, .hero-actions, .featured-card, .social-strip",
             );
             gsap
               .timeline({

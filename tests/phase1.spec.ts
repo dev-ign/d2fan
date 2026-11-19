@@ -274,6 +274,10 @@ test("consent links require explicit action and show localized invalid-link outc
     await expect(page.getByRole("dialog").getByRole("status")).toHaveText(
       copy.confirmed,
     );
+    await expect(page.getByRole("dialog").getByRole("status")).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: copy.confirm, exact: true }),
+    ).toHaveCount(0);
   }
 });
 test("email delivery states stay distinct while paid download access remains available", async ({
