@@ -15,7 +15,7 @@ export function StreamingLink({
   onSelect?: () => void;
   tooltip?: { visible: boolean; show: () => void; dismiss: () => void };
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   return (
     <a
       className="stream-link"
@@ -58,6 +58,8 @@ export function StreamingLink({
         analytics.track("DSPClick", {
           release_slug: release.slug,
           platform: link.platform,
+          placement: onSelect ? "home" : "release_page",
+          language: locale,
         });
       }}
     >

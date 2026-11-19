@@ -281,10 +281,29 @@ html[data-experience="home"] {
   line-height: 1.7;
   color: var(--bone-0);
 }
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+.fan-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 44px;
+  color: var(--bone-0);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.fan-jump:hover {
+  color: var(--lime-support);
+}
 .hero-read {
   width: 44px;
   height: 44px;
-  margin-top: 14px;
   border: 1px solid var(--line-glass);
   border-radius: 50%;
   background: #13111170;
@@ -1427,7 +1446,8 @@ html[data-experience="home"] {
     font-size: 13px;
     line-height: 1.6;
   }
-  .hero-read {
+  .hero-actions {
+    justify-content: center;
     margin-top: 12px;
   }
   .featured-card {

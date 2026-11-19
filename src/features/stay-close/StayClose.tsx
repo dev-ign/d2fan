@@ -7,6 +7,7 @@ export function StayClose() {
     <section
       className="stay-section"
       id="stay-close"
+      tabIndex={-1}
       aria-labelledby="stay-title"
     >
       <div className="container stay-content">

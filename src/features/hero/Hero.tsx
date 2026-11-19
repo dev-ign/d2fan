@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Ellipsis } from "lucide-react";
+import { ArrowDown, Ellipsis } from "lucide-react";
 import type { Artist, MusicRelease } from "../../domain/types";
 import { Dialog } from "../../components/Dialog";
 import { BiographyGallery } from "./BiographyGallery";
@@ -26,16 +26,21 @@ export function Hero({
           <div className="hero-bio">
             <p>{t.hero.short}</p>
           </div>
-          <button
-            className="hero-read icon-button"
-            type="button"
-            aria-label={t.hero.readBio}
-            aria-haspopup="dialog"
-            title={t.hero.readBio}
-            onClick={() => setBioOpen(true)}
-          >
-            <Ellipsis size={22} aria-hidden="true" />
-          </button>
+          <div className="hero-actions">
+            <button
+              className="hero-read icon-button"
+              type="button"
+              aria-label={t.hero.readBio}
+              aria-haspopup="dialog"
+              title={t.hero.readBio}
+              onClick={() => setBioOpen(true)}
+            >
+              <Ellipsis size={22} aria-hidden="true" />
+            </button>
+            <Link className="fan-jump" to="/#stay-close">
+              {t.stay.heroCta} <ArrowDown size={14} aria-hidden="true" />
+            </Link>
+          </div>
         </div>
         <Link
           className="featured-card"

@@ -12,28 +12,35 @@ const formMessages = {
     saving: "SAVING…",
     invalid: "Enter a valid email address.",
     saved: "Your contact is saved. Continue to Stripe for secure payment.",
-    culturaTitle: "You're in La Cultura.",
-    captureSaved: "Your contact is saved. Thanks for being part of this.",
+    rewardRequested: "Wallpaper request saved.",
+    updatesRequested: "Music updates requested.",
+    captureSaved: "We saved your request for the Acción wallpaper.",
     rewardUnavailable:
-      "Your exclusive is still being prepared. It isn’t available to download yet.",
+      "The wallpaper is temporarily unavailable. Try again later to get your download.",
+    rewardEmailQueued:
+      "Your wallpaper email is queued. Check your inbox and spam folder in a few minutes.",
+    rewardEmailAccepted:
+      "Check your inbox and spam folder for the wallpaper link.",
     rewardReady: "Your exclusive Acción wallpaper is ready to download.",
     rewardDownload: "Download Acción wallpaper",
     marketingConfirmation:
-      "You requested music updates. A confirmation email is queued; marketing requires your separate confirmation.",
+      "Your confirmation email is queued. When it arrives, open it and select Confirm request to subscribe.",
     marketingConfirmationDisabled:
-      "You requested music updates. Email delivery is currently disabled, so no confirmation email is being sent. Marketing permission has not been granted by this request.",
+      "Email delivery is currently disabled. You can make a fresh request for music updates when email is available.",
     marketingConfirmationAccepted:
-      "You requested music updates. The provider accepted the confirmation email; marketing requires your separate confirmation.",
+      "Check your inbox and spam folder, then select Confirm request in the email to subscribe.",
     marketingConfirmationFailed:
-      "You requested music updates. Confirmation email delivery failed; this request does not confirm marketing permission.",
+      "The confirmation email couldn’t be sent. Try signing up again later to request a new link.",
     marketingConfirmationQuarantined:
-      "You requested music updates. The confirmation email is on hold and will not be retried automatically; this request does not confirm marketing permission.",
+      "Your confirmation email is on hold. To subscribe, try signing up again later for a new link.",
     marketingConfirmationSkipped:
-      "You requested music updates. The confirmation email was skipped; this request does not confirm marketing permission.",
+      "Your confirmation email was skipped. To subscribe, try signing up again later for a new link.",
     marketingConfirmationUnknown:
-      "You requested music updates. Confirmation email delivery status is unavailable; this request does not confirm marketing permission.",
-    marketingNotRequested:
-      "You didn’t request music updates with this signup. Your existing preferences stay the same.",
+      "We couldn’t verify email delivery. If the confirmation email arrives, select Confirm request to subscribe.",
+    marketingNotRequested: "You requested the wallpaper only.",
+    captureConflict: "Please try again to start a fresh wallpaper request.",
+    captureRateLimit: "Please wait a minute before trying again.",
+    captureRetry: "Back to the form",
     tax: "Support is a tip / payment to the artist — not a charitable donation, and not tax-deductible.",
     refund:
       "Digital access is delivered after confirmed payment. Contact the artist for refund requests; a full refund revokes access. Your statutory rights apply.",
@@ -58,28 +65,36 @@ const formMessages = {
     invalid: "Introduce un correo válido.",
     saved:
       "Guardamos tu contacto. Continúa a Stripe para pagar de forma segura.",
-    culturaTitle: "Ya eres parte de La Cultura.",
-    captureSaved: "Guardamos tu contacto. Gracias por ser parte de esto.",
+    rewardRequested: "Solicitud del wallpaper guardada.",
+    updatesRequested: "Solicitud de novedades recibida.",
+    captureSaved: "Guardamos tu solicitud del wallpaper de Acción.",
     rewardUnavailable:
-      "Estamos preparando tu exclusivo. Todavía no está disponible para descargar.",
+      "El wallpaper no está disponible en este momento. Inténtalo más tarde para descargarlo.",
+    rewardEmailQueued:
+      "El correo del wallpaper está en cola. Revisa tu bandeja de entrada y la carpeta de correo no deseado en unos minutos.",
+    rewardEmailAccepted:
+      "Busca el enlace al wallpaper en tu bandeja de entrada o en la carpeta de correo no deseado.",
     rewardReady: "Tu wallpaper exclusivo de Acción está listo para descargar.",
     rewardDownload: "Descargar wallpaper de Acción",
     marketingConfirmation:
-      "Pediste novedades musicales. La confirmación por correo está en cola; las novedades requieren tu confirmación por separado.",
+      "El correo de confirmación está en cola. Cuando llegue, ábrelo y selecciona Confirmar solicitud para suscribirte.",
     marketingConfirmationDisabled:
-      "Pediste novedades musicales. El envío de correo está desactivado, por lo que no se está enviando una confirmación. Esta solicitud no ha otorgado permiso de marketing.",
+      "El envío de correo está desactivado. Puedes volver a solicitar las novedades cuando el correo esté disponible.",
     marketingConfirmationAccepted:
-      "Pediste novedades musicales. El proveedor aceptó el correo de confirmación; las novedades requieren tu confirmación por separado.",
+      "Revisa tu bandeja de entrada y la carpeta de correo no deseado. Selecciona Confirmar solicitud en el correo para suscribirte.",
     marketingConfirmationFailed:
-      "Pediste novedades musicales. Falló el envío del correo de confirmación; esta solicitud no confirma el permiso de marketing.",
+      "No se pudo enviar el correo de confirmación. Intenta registrarte de nuevo más tarde para solicitar otro enlace.",
     marketingConfirmationQuarantined:
-      "Pediste novedades musicales. El correo de confirmación está retenido y no se reintentará automáticamente; esta solicitud no confirma el permiso de marketing.",
+      "El correo de confirmación está retenido. Para suscribirte, vuelve a registrarte más tarde para obtener otro enlace.",
     marketingConfirmationSkipped:
-      "Pediste novedades musicales. Se omitió el correo de confirmación; esta solicitud no confirma el permiso de marketing.",
+      "Se omitió el correo de confirmación. Para suscribirte, vuelve a registrarte más tarde para obtener otro enlace.",
     marketingConfirmationUnknown:
-      "Pediste novedades musicales. El estado del envío del correo de confirmación no está disponible; esta solicitud no confirma el permiso de marketing.",
-    marketingNotRequested:
-      "No pediste novedades musicales con este registro. Tus preferencias anteriores siguen igual.",
+      "No pudimos verificar el envío. Si te llega el correo, selecciona Confirmar solicitud para suscribirte.",
+    marketingNotRequested: "Solo solicitaste el wallpaper.",
+    captureConflict:
+      "Vuelve a intentarlo para iniciar una nueva solicitud del wallpaper.",
+    captureRateLimit: "Espera un minuto antes de volver a intentarlo.",
+    captureRetry: "Volver al formulario",
     tax: "El apoyo es un pago al artista, no una donación benéfica ni deducible de impuestos.",
     refund:
       "El acceso digital se entrega tras confirmar el pago. Contacta al artista para pedir un reembolso; un reembolso total revoca el acceso. Se respetan tus derechos legales.",

@@ -31,7 +31,12 @@ export function useRouteScroll() {
       previousPosition?.hash === location.hash
         ? previousPosition.top
         : undefined;
-    const anchor = anchors.has(location.hash)
+    const anchor = (
+      location.pathname === "/"
+        ? anchors.has(location.hash)
+        : location.pathname.startsWith("/music/") &&
+          location.hash === "#release-signup"
+    )
       ? location.hash.slice(1)
       : undefined;
     let live = true;
@@ -63,7 +68,6 @@ export function useRouteScroll() {
         !document.querySelector(".home-experience")
       )
         return;
-      if (anchor && !document.getElementById(anchor)) return;
       settling = true;
       observer.disconnect();
       // Wait only for the actual route's DOM and fonts, never a guessed delay.
@@ -72,11 +76,12 @@ export function useRouteScroll() {
         frame = requestAnimationFrame(() => {
           if (saved !== undefined)
             window.scrollTo({ top: saved, behavior: "instant" });
-          else if (anchor)
-            document
-              .getElementById(anchor)
-              ?.scrollIntoView({ block: "start", behavior: "instant" });
-          else window.scrollTo({ top: 0, behavior: "instant" });
+          else if (anchor) {
+            const target = document.getElementById(anchor);
+            target?.scrollIntoView({ block: "start", behavior: "instant" });
+            if (anchor === "stay-close" || anchor === "release-signup")
+              target?.focus({ preventScroll: true });
+          } else window.scrollTo({ top: 0, behavior: "instant" });
           html.dataset.scrollReady = "true";
         });
       });

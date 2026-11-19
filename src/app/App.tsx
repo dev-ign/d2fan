@@ -119,8 +119,8 @@ function AppShell() {
         "",
         window.location.pathname + window.location.hash,
       );
-    analytics.track("PageView");
-  }, [location.pathname, location.hash]);
+    analytics.track("PageView", release ? { release_slug: release.slug } : {});
+  }, [location.pathname, release]);
   return (
     <>
       <Header

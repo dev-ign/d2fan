@@ -11,6 +11,7 @@ import {
 import type { MusicRelease } from "../domain/types";
 import { AudioProvider } from "./AudioProvider";
 import { useAudio } from "../hooks/useAudio";
+import { analytics } from "../services/analytics";
 
 const action: MusicRelease = {
   id: "accion",
@@ -85,9 +86,11 @@ describe("shared audio provider", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("synchronizes play, pause, seek, switching tracks, ending and errors", async () => {
+    const track = vi.spyOn(analytics, "track");
     render(
       <AudioProvider>
         <Probe />
@@ -135,9 +138,16 @@ describe("shared audio provider", () => {
     expect(screen.getByTestId("audio-state")).toHaveTextContent("darte:paused");
     await act(async () => element.dispatchEvent(new Event("error")));
     expect(screen.getByTestId("audio-state")).toHaveTextContent("darte:error");
+    expect(
+      track.mock.calls.map(([event, details]) => [event, details?.release_slug]),
+    ).toEqual([
+      ["MusicPreviewStarted", "accion"],
+      ["MusicPreviewStarted", "darte"],
+    ]);
   });
 
   it("reports a rejected play attempt and allows retry", async () => {
+    const track = vi.spyOn(analytics, "track");
     FakeAudio.failNextPlay = true;
     render(
       <AudioProvider>
@@ -150,11 +160,13 @@ describe("shared audio provider", () => {
         "accion:error",
       ),
     );
+    expect(track).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("play action"));
     await waitFor(() =>
       expect(screen.getByTestId("audio-state")).toHaveTextContent(
         "accion:playing",
       ),
     );
+    expect(track).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,14 @@
 import { useLocale, text, audioError } from "../../hooks/useLocale";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, LoaderCircle, Pause, Play, RotateCw } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  LoaderCircle,
+  Pause,
+  Play,
+  RotateCw,
+} from "lucide-react";
 import type { MusicRelease } from "../../domain/types";
 import { catalog } from "../../config/runtime";
 import { localContentRepository } from "../../repositories/localContentRepository";
@@ -121,18 +128,23 @@ export function ReleasePage() {
                   {audioError(audio.error, t)}
                 </p>
               )}
+              <Link className="fan-jump" to="#release-signup">
+                {t.stay.rewardCta} <ArrowDown size={14} aria-hidden="true" />
+              </Link>
             </div>
             <section
               className="release-capture"
+              id="release-signup"
+              tabIndex={-1}
               aria-labelledby="release-capture-heading"
             >
               <div className="release-capture-intro">
                 <h2 id="release-capture-heading">
                   {t.release.stay} <em>{t.release.close}</em>
                 </h2>
-                <p>{t.stay.intro}</p>
+                <p>{t.stay.releaseIntro}</p>
               </div>
-              <FanCaptureForm key={release.id} compact />
+              <FanCaptureForm key={release.id} releaseSlug={release.slug} />
             </section>
           </div>
         </div>
