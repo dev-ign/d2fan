@@ -69,6 +69,7 @@ Deno.test(
       assert(
         accepted.status === 200 &&
           body.emailSafetyRevision === "20261027202242" &&
+          body.jobDispatchRevision === "20261116" &&
           body.sending === false,
       );
     } finally {
@@ -104,6 +105,10 @@ function job(overrides: Partial<EmailJob> = {}): EmailJob {
 function harness(overrides: Partial<EmailStore> = {}) {
   const calls: { type: string; [key: string]: unknown }[] = [];
   const store: EmailStore = {
+    async kind(id) {
+      calls.push({ type: "kind", id });
+      return "capture";
+    },
     async claim(id, marketing) {
       calls.push({ type: "claim", id, marketing });
       return [];
@@ -423,6 +428,81 @@ Deno.test(
   },
 );
 Deno.test(
+  "ordinary HTTP dispatch requires one exact job ID and never runs batch maintenance",
+  async () => {
+    const selected = job(),
+      h = harness({
+        async claim(id, marketing) {
+          assert(id === selected.id && !marketing);
+          return [selected];
+        },
+      });
+    for (const body of [{}, { operation: "ordinary" }, { jobId: "invalid" }])
+      await rejects(
+        () => messagingRequest(new Request("https://worker"), body, h.deps),
+        "invalid_request",
+      );
+    assert(h.calls.length === 0);
+    const result = await messagingRequest(
+      new Request("https://worker"),
+      { operation: "dispatch_job", jobId: selected.id },
+      h.deps,
+    );
+    assert("sent" in result && result.sent === 1);
+    assert(h.calls.filter((c) => c.type === "send").length === 1);
+    assert(
+      !h.calls.some((c) => c.type === "maintenance" || c.type === "create"),
+    );
+    for (const kind of [null, "meta", "transactional_test"]) {
+      const denied = harness({
+        async kind() {
+          return kind;
+        },
+      });
+      await rejects(
+        () =>
+          messagingRequest(
+            new Request("https://worker"),
+            { jobId: selected.id },
+            denied.deps,
+          ),
+        "invalid_request",
+      );
+      assert(
+        !denied.calls.some((c) => c.type === "claim" || c.type === "send"),
+      );
+    }
+    const replay = harness();
+    const empty = await messagingRequest(
+      new Request("https://worker"),
+      { jobId: selected.id },
+      replay.deps,
+    );
+    assert("sent" in empty && empty.sent === 0);
+    assert(
+      replay.calls.some((c) => c.type === "claim" && c.id === selected.id),
+    );
+    assert(
+      !replay.calls.some((c) => c.type === "send" || c.type === "maintenance"),
+    );
+    const disabled = harness();
+    await rejects(
+      () =>
+        messagingRequest(
+          new Request("https://worker"),
+          { jobId: selected.id },
+          {
+            ...disabled.deps,
+            get: (name) =>
+              name === "EMAIL_DELIVERY_ENABLED" ? "false" : get(name),
+          },
+        ),
+      "email_configuration",
+    );
+    assert(disabled.calls.length === 0);
+  },
+);
+Deno.test(
   "new requested reward uses fresh database issuance, no marketing consent or postal, then records acceptance",
   async () => {
     const h = harness();
@@ -439,6 +519,64 @@ Deno.test(
     assert(
       body.reply_to === settings.SUPPORT_EMAIL && body.text.includes("48"),
     );
+  },
+);
+Deno.test(
+  "requested opt-in email includes request-bound confirmation and unsubscribe with welcome disabled",
+  async () => {
+    const request = crypto.randomUUID(),
+      fan = crypto.randomUUID();
+    const selected = job({
+      fan_id: fan,
+      dedupe_key: `capture:${request}`,
+      created_at: new Date(now).toISOString(),
+      payload: { magnet: true, confirm: true },
+    });
+    const h = harness({
+      async permission() {
+        throw new Error("marketing permission lookup forbidden");
+      },
+    });
+    const config = readEmailConfig(get);
+    assert(!config.marketingReady && !config.postal);
+    const signing = {
+      ...h.deps,
+      sign: async (
+        scope: Parameters<typeof signToken>[0]["scope"],
+        sub: string,
+        ttl: number,
+        issued = Math.floor(now / 1000),
+        actionId?: string,
+      ) =>
+        signToken(
+          {
+            scope,
+            artist: "jona-ferreira",
+            sub,
+            iat: issued,
+            exp: issued + ttl,
+            ...(actionId ? { actionId } : {}),
+          },
+          secret,
+        ),
+    };
+    assert((await deliverEmailJob(selected, config, signing)) === "sent");
+    const body = h.calls.find((c) => c.type === "send")!.body as OutgoingEmail;
+    const confirm = decodeURIComponent(
+      body.text.match(/#confirm=([^\s]+)/)![1],
+    );
+    const unsubscribe = decodeURIComponent(
+      body.text.match(/#unsubscribe=([^\s]+)/)![1],
+    );
+    assert(
+      (await verifyToken(confirm, "confirm", "jona-ferreira", secret))
+        .actionId === request,
+    );
+    assert(
+      (await verifyToken(unsubscribe, "unsubscribe", "jona-ferreira", secret))
+        .sub === fan,
+    );
+    assert(!body.text.includes("Welcome to La Cultura"));
   },
 );
 Deno.test(
@@ -662,7 +800,7 @@ Deno.test(
       new Request("https://worker", {
         method: "POST",
         headers: { authorization: auth },
-        body: "{}",
+        body: JSON.stringify({ jobId: crypto.randomUUID() }),
       });
     assert((await handler(req("Bearer invalid"))).status === 401);
     const response = await handler(req(`Bearer ${secret}`)),

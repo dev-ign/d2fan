@@ -18,6 +18,7 @@ export default defineConfig({
       VITE_SUPABASE_URL: "http://127.0.0.1:54321",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable",
       VITE_PAYMENT_TEST_API: "http://127.0.0.1:54324/functions/v1",
+      VITE_COMMERCE_ENABLED: "true",
     },
   },
 });

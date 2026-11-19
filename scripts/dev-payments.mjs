@@ -85,6 +85,7 @@ run(
   {
     ...process.env,
     VITE_PAYMENT_TEST_API: "http://127.0.0.1:54324/functions/v1",
+    VITE_COMMERCE_ENABLED: "true",
   },
 );
 process.on("SIGINT", () => stop());

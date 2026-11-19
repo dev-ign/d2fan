@@ -10,6 +10,129 @@ const saved = {
   delivery: "queued",
 };
 
+for (const width of [390, 1440]) {
+  test(`Stage A preserves signup, rewards and consent with commerce disabled at ${width}px`, async ({
+    page,
+  }) => {
+    test.skip(
+      process.env.VITE_COMMERCE_ENABLED !== "false",
+      "Run Stage A checks with VITE_COMMERCE_ENABLED=false.",
+    );
+    await page.setViewportSize({ width, height: 920 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const unexpectedCommerce: string[] = [];
+    const actions: string[] = [];
+    await page.route("**/functions/v1/**", async (route) => {
+      const name = route.request().url().split("/").at(-1);
+      if (name === "capture-fan") {
+        expect(route.request().postDataJSON().emailMarketing).toBe(true);
+        return route.fulfill({
+          json: {
+            success: true,
+            data: {
+              ...saved,
+              delivery: "disabled",
+              magnetUrl: "https://storage.example.com/stage-a-reward",
+            },
+          },
+        });
+      }
+      if (name === "manage-consent") {
+        actions.push(route.request().postDataJSON().action);
+        return route.fulfill({
+          json: { success: true, data: { message: "updated" } },
+        });
+      }
+      unexpectedCommerce.push(name || "unknown");
+      return route.abort();
+    });
+    await page.goto("/");
+    await expect(
+      page.getByRole("link", { name: "JONA FERREIRA", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".support-header")).toHaveCount(0);
+    await expect(page.locator(".vault-card").first()).toBeDisabled();
+    if (width === 390) {
+      await page.getByRole("button", { name: "Open menu" }).click();
+      await expect(page.locator("#site-menu")).toBeVisible();
+      await expect(
+        page
+          .locator("#site-menu")
+          .getByRole("button", { name: "SUPPORT THE JOURNEY" }),
+      ).toHaveCount(0);
+      await page.keyboard.press("Escape");
+    }
+    await page.goto("/#stay-close");
+    await page
+      .getByLabel("YOUR EMAIL", { exact: true })
+      .fill("fan@example.com");
+    await page.locator(".stay-form").getByRole("checkbox").check();
+    await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
+    const confirmation = page.getByRole("region", {
+      name: "You're in La Cultura.",
+    });
+    await expect(confirmation).toContainText("saved");
+    await expect(confirmation).toContainText("disabled");
+    await expect(confirmation.getByRole("link")).toHaveAttribute(
+      "href",
+      "https://storage.example.com/stage-a-reward",
+    );
+    await page.screenshot({ path: `${output}/stage-a-${width}.png` });
+    for (const [mode, button, feedback] of [
+      ["confirm", "CONFIRM MUSIC UPDATES", "Your music updates are confirmed."],
+      [
+        "unsubscribe",
+        "UNSUBSCRIBE",
+        "You have unsubscribed from music updates.",
+      ],
+    ]) {
+      await page.goto(`/#${mode}=test-only`);
+      await page.reload();
+      await page.getByRole("button", { name: button, exact: true }).click();
+      await expect(page.getByText(feedback, { exact: true })).toBeVisible();
+    }
+    expect(actions).toEqual(["confirm", "unsubscribe"]);
+    expect(unexpectedCommerce).toEqual([]);
+  });
+}
+
+test("Stage A hides saved checkout resume and restart actions", async ({
+  page,
+}) => {
+  test.skip(
+    process.env.VITE_COMMERCE_ENABLED !== "false",
+    "Run Stage A checks with VITE_COMMERCE_ENABLED=false.",
+  );
+  await page.route("**/functions/v1/checkout-status", (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          status: "expired",
+          purpose: "tip",
+          amountMinor: 1500,
+          currency: "usd",
+          delivery: "disabled",
+          checkoutUrl: "https://checkout.stripe.com/stale-session",
+        },
+      },
+    }),
+  );
+  await page.goto("/#status=test-only");
+  await expect(
+    page.getByRole("dialog", { name: "Your purchase and access" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "START A NEW CHECKOUT" }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('a[href^="https://checkout.stripe.com"]'),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "OPEN MY DOWNLOAD" }),
+  ).toHaveCount(0);
+});
+
 test("failed capture retains details, unchecked consent and idempotent retry before replacing the form", async ({
   page,
 }) => {

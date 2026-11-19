@@ -5,8 +5,9 @@ import {
   redeemVault,
   recoverAccess,
 } from "../functions/_shared/handlers.ts";
-import { token, endpoint } from "../functions/_shared/platform.ts";
+import { token, endpoint, rpc } from "../functions/_shared/platform.ts";
 import { signToken, verifyToken } from "../functions/_shared/security.ts";
+import { checkoutRequest } from "../functions/create-checkout/index.ts";
 const secret = "a-long-local-only-test-secret-with-32-characters";
 for (const [name, value] of Object.entries({
   SUPABASE_URL: "http://localhost:54321",
@@ -31,6 +32,59 @@ async function rejects(fn: () => Promise<unknown>, message: string) {
   }
   throw new Error("expected rejection");
 }
+Deno.test(
+  "Stage A checkout denies direct calls before any network or writes",
+  async () => {
+    const previous = Deno.env.get("COMMERCE_ENABLED");
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = () => {
+      calls++;
+      throw new Error(
+        "disabled checkout must not access a provider or database",
+      );
+    };
+    try {
+      for (const flag of [undefined, "false", "TRUE"]) {
+        if (flag === undefined) Deno.env.delete("COMMERCE_ENABLED");
+        else Deno.env.set("COMMERCE_ENABLED", flag);
+        for (const purpose of ["tip", "vault_unlock"]) {
+          const response = await checkoutRequest(
+            new Request("http://localhost/create-checkout", {
+              method: "POST",
+              headers: { origin: "http://localhost:5173" },
+              body: JSON.stringify({
+                purpose,
+                operatorTestToken: "cannot-bypass-stage-a",
+                captureToken: "capture",
+              }),
+            }),
+          );
+          assert(response.status === 503);
+          assert(response.headers.get("Cache-Control") === "no-store");
+          const result = await response.json();
+          assert(
+            result.success === false &&
+              result.error.code === "commerce_disabled" &&
+              result.error.retryable === false,
+          );
+        }
+      }
+      Deno.env.set("COMMERCE_ENABLED", "true");
+      const enabled = await checkoutRequest(
+        new Request("http://localhost/create-checkout", {
+          headers: { origin: "http://localhost:5173" },
+        }),
+      );
+      assert(enabled.status === 405); // Delegates to the preserved endpoint policy.
+      assert(calls === 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (previous === undefined) Deno.env.delete("COMMERCE_ENABLED");
+      else Deno.env.set("COMMERCE_ENABLED", previous);
+    }
+  },
+);
 Deno.test(
   "scoped token rejects tampering, cross-artist, expired and wrong-purpose claims",
   async () => {
@@ -170,6 +224,258 @@ Deno.test(
   },
 );
 Deno.test(
+  "capture endpoint preserves replay identity and returns the exact fingerprint conflict contract",
+  async () => {
+    const original = globalThis.fetch;
+    const fan = crypto.randomUUID();
+    const body = {
+      requestId: crypto.randomUUID(),
+      email: " FAN@example.invalid ",
+      language: "en",
+      source: "support_modal",
+      emailMarketing: true,
+      analyticsConsent: false,
+      code: "P0001",
+      message: "request_conflict",
+    };
+    let fingerprint = "",
+      captures = 0,
+      lookups = 0;
+    const handler = endpoint(captureFan);
+    const post = (value: unknown) =>
+      handler(
+        new Request("http://localhost/capture-fan", {
+          method: "POST",
+          headers: { origin: "http://localhost:5173" },
+          body: JSON.stringify(value),
+        }),
+      );
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.includes("/rpc/check_rate")) return Response.json(true);
+      if (url.includes("/rpc/capture_fan")) {
+        const args = JSON.parse(String(init?.body));
+        assert(args.p_email === "fan@example.invalid");
+        assert(args.p_request === body.requestId);
+        captures++;
+        if (fingerprint && fingerprint !== args.p_fingerprint)
+          return Response.json(
+            {
+              code: "P0001",
+              message: "request_conflict",
+              details: null,
+              hint: null,
+            },
+            { status: 400 },
+          );
+        fingerprint = args.p_fingerprint;
+        return Response.json(fan);
+      }
+      assert(
+        url.includes("/delivery_jobs") &&
+          (!init?.method || init.method === "GET"),
+      );
+      lookups++;
+      return Response.json(null);
+    };
+    try {
+      for (const email of [body.email, "fan@example.invalid"]) {
+        const response = await post({ ...body, email });
+        assert(response.status === 200);
+        const result = await response.json();
+        assert(
+          result.success && result.data.eventId === `capture:${body.requestId}`,
+        );
+        assert(
+          (
+            await verifyToken(
+              result.data.captureToken,
+              "capture",
+              "jona-ferreira",
+              secret,
+            )
+          ).sub === fan,
+        );
+      }
+      const lookupsBeforeConflict = lookups;
+      const response = await post({ ...body, emailMarketing: false });
+      const result = await response.json();
+      assert(response.status === 400 && !result.success);
+      assert(result.error.code === "request_conflict");
+      assert(Object.keys(result).join() === "success,error");
+      assert(
+        Object.keys(result.error).sort().join() === "code,message,retryable",
+      );
+      assert(
+        captures === 3 && lookups === lookupsBeforeConflict,
+        "conflict continued after the failed RPC",
+      );
+    } finally {
+      globalThis.fetch = original;
+    }
+  },
+);
+Deno.test(
+  "RPC conflict translation is capture-only, exact and sanitized at the endpoint boundary",
+  async (t) => {
+    const originalFetch = globalThis.fetch;
+    const originalError = console.error;
+    const logs: string[] = [];
+    const sensitive = "private-database-detail-do-not-expose";
+    const cases = [
+      {
+        name: "capture conflict",
+        rpc: "capture_fan",
+        code: "P0001",
+        message: "request_conflict",
+        status: 400,
+      },
+      {
+        name: "database unavailable",
+        rpc: "capture_fan",
+        code: "PGRST000",
+        message: sensitive,
+        status: 503,
+      },
+      {
+        name: "unrelated exception",
+        rpc: "capture_fan",
+        code: "P0001",
+        message: sensitive,
+        status: 503,
+      },
+      {
+        name: "wrong SQLSTATE",
+        rpc: "capture_fan",
+        code: "23505",
+        message: "request_conflict",
+        status: 503,
+      },
+      {
+        name: "missing SQLSTATE",
+        rpc: "capture_fan",
+        message: "request_conflict",
+        status: 503,
+      },
+      {
+        name: "message substring",
+        rpc: "capture_fan",
+        code: "P0001",
+        message: `${sensitive}: request_conflict`,
+        status: 503,
+      },
+      {
+        name: "consent exception",
+        rpc: "update_email_consent",
+        code: "P0001",
+        message: "request_conflict",
+        status: 503,
+      },
+      {
+        name: "rate exception",
+        rpc: "check_rate",
+        code: "P0001",
+        message: "request_conflict",
+        status: 503,
+      },
+    ];
+    console.error = (...args: unknown[]) => logs.push(JSON.stringify(args));
+    try {
+      for (const scenario of cases) {
+        await t.step(scenario.name, async () => {
+          globalThis.fetch = (input) => {
+            const name = new URL(String(input)).pathname.split("/").pop();
+            if (name === "check_rate" && scenario.rpc !== "check_rate")
+              return Promise.resolve(Response.json(true));
+            assert(name === scenario.rpc);
+            return Promise.resolve(
+              Response.json(
+                {
+                  code: scenario.code,
+                  message: scenario.message,
+                  details: sensitive,
+                  hint: sensitive,
+                },
+                { status: 400 },
+              ),
+            );
+          };
+          const response = await endpoint(async () => rpc(scenario.rpc, {}))(
+            new Request("http://localhost/capture-fan", {
+              method: "POST",
+              headers: { origin: "http://localhost:5173" },
+              body: JSON.stringify({
+                code: "P0001",
+                message: "request_conflict",
+              }),
+            }),
+          );
+          const raw = await response.text();
+          const result = JSON.parse(raw);
+          assert(response.status === scenario.status && !result.success);
+          assert(
+            result.error.code ===
+              (scenario.status === 400 ? "request_conflict" : "unavailable"),
+          );
+          assert(!raw.includes(sensitive) && !raw.includes("P0001"));
+        });
+      }
+      assert(!logs.join().includes(sensitive));
+    } finally {
+      globalThis.fetch = originalFetch;
+      console.error = originalError;
+    }
+  },
+);
+Deno.test(
+  "capture rejects client error-like fields without bypassing validation or invoking capture RPC",
+  async () => {
+    const original = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (input) => {
+      assert(String(input).includes("/rpc/check_rate"));
+      calls++;
+      return Promise.resolve(Response.json(true));
+    };
+    try {
+      for (const [body, code] of [
+        [
+          {
+            email: "request_conflict",
+            code: "P0001",
+            message: "request_conflict",
+          },
+          "invalid_email",
+        ],
+        [
+          {
+            email: "fan@example.invalid",
+            requestId: "request_conflict",
+            error: { code: "P0001", message: "request_conflict" },
+          },
+          "invalid_request",
+        ],
+        [[], "invalid_request"],
+      ] as const) {
+        const response = await endpoint(captureFan)(
+          new Request("http://localhost/capture-fan", {
+            method: "POST",
+            headers: { origin: "http://localhost:5173" },
+            body: JSON.stringify(body),
+          }),
+        );
+        assert(
+          response.status === 400 &&
+            (await response.json()).error.code === code,
+        );
+      }
+      assert(calls === 3);
+    } finally {
+      globalThis.fetch = original;
+    }
+  },
+);
+Deno.test(
   "capture and checkout orchestrate real adapters with mocked HTTP boundaries",
   async () => {
     const original = globalThis.fetch;
@@ -268,6 +574,118 @@ Deno.test(
 );
 
 Deno.test(
+  "capture dispatches only its fresh requested job and preserves rewards on uncertain delivery",
+  async () => {
+    const settings = {
+      EMAIL_DELIVERY_ENABLED: "true",
+      EMAIL_PROVIDER_API_KEY: "re_mock",
+      EMAIL_FROM_ADDRESS: "music@jonaferreira.com",
+      SUPPORT_EMAIL: "support@example.com",
+      PUBLIC_SITE_URL: "https://example.com",
+      EMAIL_MARKETING_ENABLED: "false",
+      BUSINESS_POSTAL_ADDRESS: "",
+      PRIVATE_FILE_PATHS: '{"lead-magnet":"reward.jpg"}',
+    };
+    const previous = new Map(
+      Object.keys(settings).map((name) => [name, Deno.env.get(name)]),
+    );
+    for (const [name, value] of Object.entries(settings))
+      Deno.env.set(name, value);
+    const original = fetch,
+      id = crypto.randomUUID();
+    let attempts = 0,
+      dispatches = 0,
+      response: "sent" | "ambiguous" | "legacy" = "sent";
+    globalThis.fetch = (input, init) => {
+      const url = String(input);
+      if (url.includes("/rpc/check_rate"))
+        return Promise.resolve(Response.json(true));
+      if (url.includes("/rpc/capture_fan"))
+        return Promise.resolve(Response.json("canonical-fan"));
+      if (url.includes("/storage/v1/object/sign/"))
+        return Promise.resolve(
+          Response.json({ signedURL: "/object/sign/reward" }),
+        );
+      if (url.includes("/delivery_jobs"))
+        return Promise.resolve(
+          Response.json({
+            id,
+            attempts,
+            status: "pending",
+            email_policy_version: 1,
+          }),
+        );
+      if (url.endsWith("/functions/v1/scheduled-messaging")) {
+        dispatches++;
+        assert(init?.method === "POST");
+        assert(
+          new Headers(init.headers).get("authorization") === `Bearer ${secret}`,
+        );
+        const body = JSON.parse(String(init.body));
+        assert(
+          body.operation === "dispatch_job" &&
+            body.jobId === id &&
+            Object.keys(body).length === 2,
+        );
+        if (response === "ambiguous")
+          return Promise.reject(new Error("unavailable"));
+        return Promise.resolve(
+          Response.json(
+            response === "sent"
+              ? { success: true, data: { sent: 1 } }
+              : { success: false, error: { code: "invalid_request" } },
+            { status: response === "legacy" ? 400 : 200 },
+          ),
+        );
+      }
+      throw new Error("unexpected request");
+    };
+    const body = {
+      requestId: crypto.randomUUID(),
+      email: "fan@example.com",
+      language: "en",
+      source: "stay_close",
+      emailMarketing: true,
+      analyticsConsent: false,
+    };
+    try {
+      const sent = await captureFan(new Request("https://capture"), body);
+      assert(sent.delivery === "sent" && sent.magnetUrl && dispatches === 1);
+      for (const outcome of ["ambiguous", "legacy"] as const) {
+        response = outcome;
+        const result = await captureFan(new Request("https://capture"), body);
+        assert(result.delivery === "unknown" && result.magnetUrl);
+      }
+      const sentRequests = dispatches;
+      attempts = 1;
+      assert(
+        (await captureFan(new Request("https://capture"), body)).delivery ===
+          "queued",
+      );
+      assert(
+        dispatches === sentRequests,
+        "a replay must not retry a provider attempt",
+      );
+      attempts = 0;
+      Deno.env.set("EMAIL_DELIVERY_ENABLED", "false");
+      assert(
+        (await captureFan(new Request("https://capture"), body)).delivery ===
+          "disabled",
+      );
+      assert(
+        dispatches === sentRequests,
+        "disabled delivery must not invoke a worker",
+      );
+    } finally {
+      globalThis.fetch = original;
+      for (const [name, value] of previous) {
+        if (value === undefined) Deno.env.delete(name);
+        else Deno.env.set(name, value);
+      }
+    }
+  },
+);
+Deno.test(
   "capture replay and purchase email status use scoped evidence without withholding downloads",
   async () => {
     const settings = {
@@ -353,7 +771,7 @@ Deno.test(
           );
           assert(
             params.get("select") ===
-              "status,provider_id,sent_at,quarantined_at,email_policy_version",
+              "id,attempts,status,provider_id,sent_at,quarantined_at,email_policy_version",
           );
         }
         return Promise.resolve(

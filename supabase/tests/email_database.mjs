@@ -325,8 +325,102 @@ export async function testEmailDatabase(db) {
     ).allowed,
     false,
   );
+  await testEmailJobBoundary(db);
   console.log(
     "PASS: email admission, exact-six quarantine/audit, 23h deadline, frozen retry, stale lease fencing, terminal states, consent withdrawal, test isolation and role denial.",
+  );
+}
+
+export async function testEmailJobBoundary(db) {
+  const q = (sql, args = []) => db.query(sql, args);
+  const fan = (
+    await q(
+      "insert into fans(artist_id,email_normalized,first_touch_source) values('jona-ferreira',$1,'stay_close') returning id",
+      [`boundary-${crypto.randomUUID()}@example.com`],
+    )
+  ).rows[0].id;
+  const add = async (kind, policy = 1, expires = null) =>
+    (
+      await q(
+        `insert into delivery_jobs(artist_id,fan_id,kind,dedupe_key,payload,email_policy_version,email_links_expire_at) values('jona-ferreira',$1,$2,$3,'{"magnet":true}',$4,$5) returning id`,
+        [fan, kind, `boundary:${crypto.randomUUID()}`, policy, expires],
+      )
+    ).rows[0].id;
+  const selected = await add("capture");
+  const unrelated = await add("capture");
+  const expired = await add(
+    "capture",
+    1,
+    new Date(Date.now() - 3600_000).toISOString(),
+  );
+  const welcome = await add("welcome");
+  const legacy = await add("capture", 0);
+  const quarantined = await add("capture");
+  await q(
+    "update delivery_jobs set status='failed',quarantined_at=clock_timestamp(),quarantine_reason='test' where id=$1",
+    [quarantined],
+  );
+  const snapshot = async () =>
+    (
+      await q(
+        "select jsonb_build_object('jobs',(select jsonb_agg(to_jsonb(j) order by id) from delivery_jobs j where id<>$1),'audit',(select jsonb_agg(to_jsonb(a) order by id) from delivery_job_audit a where job_id<>$1)) state",
+        [selected],
+      )
+    ).rows[0].state;
+  const before = await snapshot();
+  const claim = async (id) =>
+    (await q("select * from claim_email_jobs($1,false)", [id])).rows;
+  const [leased] = await claim(selected);
+  assert.equal(leased.id, selected);
+  assert.equal(leased.attempts, 1);
+  assert.deepEqual(await claim(selected), []);
+  assert.deepEqual(
+    await snapshot(),
+    before,
+    "targeted claim must not expire, audit or claim any other job",
+  );
+  assert.equal(
+    (await q("select status from delivery_jobs where id=$1", [unrelated]))
+      .rows[0].status,
+    "pending",
+  );
+  for (const id of [welcome, legacy, quarantined, crypto.randomUUID()])
+    assert.deepEqual(await claim(id), []);
+  const frozen = (
+    await q(
+      "select * from begin_email_dispatch($1,$2,$3,clock_timestamp()+interval '48 hours',false)",
+      [selected, leased.lease_token, body],
+    )
+  ).rows[0];
+  assert.ok(frozen.first_provider_attempt_at);
+  assert.equal(
+    (
+      await q(
+        "select finish_email_dispatch($1,$2,'accepted','boundary-receipt',null) ok",
+        [selected, leased.lease_token],
+      )
+    ).rows[0].ok,
+    true,
+  );
+  assert.deepEqual(await claim(selected), []);
+  assert.deepEqual(await claim(expired), []);
+  assert.equal(
+    (await q("select status from delivery_jobs where id=$1", [expired])).rows[0]
+      .status,
+    "failed",
+  );
+  for (const role of ["anon", "authenticated"])
+    assert.equal(
+      (
+        await q(
+          "select has_function_privilege($1,'public.claim_email_jobs(uuid,boolean)','execute') allowed",
+          [role],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  console.log(
+    "PASS: one-ID ordinary claim, unrelated row/audit preservation, lease/replay fence, marketing/legacy/quarantine/expiry eligibility and role denial.",
   );
 }
 

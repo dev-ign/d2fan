@@ -22,7 +22,7 @@ for (const name of (await readdir(migrationDirectory))
 }
 const artist = "jona-ferreira";
 const request = crypto.randomUUID();
-const capture = () =>
+const capture = (fingerprint = "fingerprint") =>
   db.query("select capture_fan($1,$2,$3,$4,$5,$6,$7,$8,$9) as id", [
     artist,
     request,
@@ -32,10 +32,33 @@ const capture = () =>
     { utm_source: "instagram" },
     { utm_source: "instagram" },
     true,
-    "fingerprint",
+    fingerprint,
   ]);
 const fan = (await capture()).rows[0].id;
+const captureSnapshot = () =>
+  db.query(`select jsonb_build_array(
+    ${[
+      "fans",
+      "capture_requests",
+      "consent_records",
+      "fan_events",
+      "delivery_jobs",
+      "delivery_job_audit",
+    ]
+      .map(
+        (table) =>
+          `(select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from public.${table} r)`,
+      )
+      .join(",")}
+  ) as state`);
+const capturedState = (await captureSnapshot()).rows;
 assert.equal((await capture()).rows[0].id, fan);
+assert.deepEqual((await captureSnapshot()).rows, capturedState);
+await assert.rejects(capture("changed-fingerprint"), {
+  code: "P0001",
+  message: "request_conflict",
+});
+assert.deepEqual((await captureSnapshot()).rows, capturedState);
 await db.query("select capture_fan($1,$2,$3,$4,$5,$6,$7,$8,$9)", [
   artist,
   crypto.randomUUID(),

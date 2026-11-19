@@ -56,6 +56,373 @@ export async function seedConsentMigration(observer) {
   };
 }
 
+// Separate staged path: no callback probes or privilege-escalation reproduction.
+export async function testConsentPreHardening({
+  observer,
+  first,
+  second,
+  monitor,
+  cronLauncher = false,
+  operation,
+  drain,
+  legacy,
+  openClient,
+}) {
+  const catalog = () =>
+    observer.query(`select jsonb_build_object(
+    'functions',(select jsonb_agg(to_jsonb(p) order by oid) from pg_proc p where pronamespace='public'::regnamespace),
+    'tables',(select jsonb_agg(jsonb_build_array(oid,relname,relowner,relacl) order by oid) from pg_class where relnamespace='public'::regnamespace),
+    'triggers',(select jsonb_agg(to_jsonb(t) order by oid) from pg_trigger t where tgrelid in
+      (select oid from pg_class where relnamespace='public'::regnamespace)))`);
+  const rejected = async (pattern) => {
+    const before = await catalog();
+    const client = openClient();
+    try {
+      await assert.rejects(client.query(operation), pattern);
+    } finally {
+      await client.close();
+    }
+    assert.equal(
+      await catalog(),
+      before,
+      "failed hardening must roll back definitions and ACLs",
+    );
+  };
+  await observer.query(
+    "alter table public.rate_limits rename to missing_rate_limits",
+  );
+  await rejected(/does not exist/);
+  await observer.query(
+    "alter table public.missing_rate_limits rename to rate_limits",
+  );
+  await observer.query(
+    "alter table public.delivery_jobs disable trigger delivery_job_audit",
+  );
+  await rejected(/unexpected_delivery_trigger_definition/);
+  await observer.query(
+    "alter table public.delivery_jobs enable trigger delivery_job_audit",
+  );
+  await observer.query(`create trigger unexpected_guard before update on public.delivery_jobs
+    for each row execute function public.guard_email_job()`);
+  await rejected(/unexpected_application_trigger/);
+  await observer.query("drop trigger unexpected_guard on public.delivery_jobs");
+  for (const [permission, error] of [
+    ["trigger on public.fans", "retained_application_trigger_privilege"],
+    [
+      "execute on function public.audit_delivery_job()",
+      "retained_private_function_privilege",
+    ],
+  ]) {
+    await observer.query(`create role consent_inherited_test;
+      grant ${permission} to consent_inherited_test; grant consent_inherited_test to service_role`);
+    await rejected(new RegExp(error));
+    await observer.query(`revoke consent_inherited_test from service_role;
+      revoke ${permission} from consent_inherited_test; drop role consent_inherited_test`);
+  }
+  await first.query(
+    "begin; lock table public.rate_limits in share row exclusive mode",
+  );
+  const started = Date.now();
+  await rejected(/could not obtain lock/);
+  assert.ok(
+    Date.now() - started < 4000,
+    "NOWAIT must fail before the 5s lock timeout",
+  );
+  await first.query("rollback");
+  console.log(
+    "PASS: pre-hardening rejects missing/altered/extra inventory, inherited privileges and NOWAIT contention; complete rollback",
+  );
+
+  // Ordinary fulfillment must commit while every staged inventory lock is held.
+  const request = crypto.randomUUID(),
+    attempt = crypto.randomUUID();
+  const fan =
+    await observer.query(`select public.capture_fan('jona-ferreira','${request}',
+    '${request}@example.invalid','en','support_modal','{}','{}',false,'pre-hardening')`);
+  await observer.query(`insert into public.checkout_attempts(id,artist_id,fan_id,purpose,amount_minor,currency,stripe_session_id)
+    values('${attempt}','jona-ferreira','${fan}','tip',500,'usd','cs_test_${attempt}')`);
+  const before = await catalog();
+  await first.query("begin");
+  await first.query(
+    operation.replace(/^.*?begin;/s, "").replace(/commit;\s*$/, ""),
+  );
+  await second.query(`select public.fulfill_checkout('evt_${attempt}','checkout.session.completed',
+    '${attempt}','cs_test_${attempt}','pi_test_${attempt}',500,'usd')`);
+  await first.query("rollback");
+  assert.equal(await catalog(), before);
+  assert.equal(
+    await observer.query(
+      `select count(*) from public.purchases where checkout_attempt_id='${attempt}'`,
+    ),
+    "1",
+  );
+  console.log(
+    "PASS: payment DML commits under staged inventory locks; explicit rollback restores all hardening catalogs",
+  );
+
+  // Pause an old, harmless function frame before any application-table access.
+  const original = await observer.query(
+    "select pg_get_functiondef('public.check_rate(text,integer)'::regprocedure)",
+  );
+  const instrumented = original.replace(
+    "begin\n",
+    "begin\n perform pg_advisory_xact_lock(61107001);\n",
+  );
+  assert.notEqual(instrumented, original);
+  await observer.query(instrumented);
+  await observer.query("select pg_advisory_lock(61107001)");
+  await first.query("begin");
+  const firstPid = Number(await first.query("select pg_backend_pid()"));
+  const active = first.query(
+    "select public.check_rate('pre-hardening-old-frame',1)",
+  );
+  const deadline = Date.now() + 5000;
+  while (
+    (await observer.query(
+      `select exists(select 1 from pg_locks where pid=${firstPid} and locktype='advisory' and not granted)`,
+    )) !== "t"
+  ) {
+    assert.ok(
+      Date.now() < deadline,
+      "old function did not reach its advisory barrier",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  await second.query("begin; select 1");
+  const secondPid = Number(await second.query("select pg_backend_pid()"));
+  await observer.query(operation);
+  assert.equal(await legacySnapshot(observer, legacy.fan), legacy.snapshot);
+  assert.equal(await rpcCatalog(observer), legacy.rpcCatalog);
+
+  const inspect = async (client = monitor) =>
+    JSON.parse(await client.query(drain));
+  if (cronLauncher) {
+    // Real extension process, no cron schema/job and no forged activity row.
+    assert.equal(
+      await monitor.query(`select count(*) from pg_stat_activity a
+      where datid=(select oid from pg_database where datname=current_database())
+      and backend_type='pg_cron launcher' and state is null and xact_start is null
+      and backend_xid is null and backend_xmin is null and backend_start is not null
+      and client_addr is null and client_port is null and wait_event_type='Extension'
+      and not exists(select 1 from pg_locks l where l.pid=a.pid
+        and l.locktype in ('virtualxid','transactionid'))`),
+      "1",
+    );
+    assert.equal(
+      await monitor.query("select to_regnamespace('cron') is null"),
+      "t",
+    );
+    console.log(
+      "PASS: real preloaded pg_cron launcher reproduces NULL-state/nontransactional catalog behavior without cron jobs",
+    );
+  }
+  const restricted = await inspect(observer);
+  assert.equal(restricted.decision, "NO-GO: prerequisites");
+  assert.equal(restricted.checks.visibility_complete, false);
+  assert.match((await inspect()).decision, /^CAPTURED/);
+  let result = await inspect();
+  assert.equal(result.decision, "NO-GO: original transactions remain");
+  assert.ok(result.remaining.some((t) => t.pid === firstPid && t.xid === null));
+  assert.ok(
+    result.remaining.some((t) => t.pid === secondPid && t.xid === null),
+  );
+  // XID assignment must not make a still-open original transaction disappear.
+  await second.query(
+    "insert into public.rate_limits values('pre-hardening-xid',1,now())",
+  );
+  assert.equal(
+    (await inspect()).decision,
+    "NO-GO: original transactions remain",
+  );
+  await observer.query("select pg_advisory_unlock(61107001)");
+  assert.equal(
+    await active,
+    "t",
+    "old compiled frame completes after its replacement commits",
+  );
+  assert.equal(
+    (await inspect()).decision,
+    "NO-GO: original transactions remain",
+  );
+  await first.query("commit; begin; select 1");
+  result = await inspect();
+  assert.ok(
+    !result.remaining.some((t) => t.pid === firstPid),
+    "new transaction on the same backend is not the old cohort member",
+  );
+  assert.ok(result.remaining.some((t) => t.pid === secondPid));
+  await second.query("rollback");
+  assert.equal((await inspect()).decision, "GO: original cohort drained");
+  await first.query("rollback");
+
+  // Project the observed background metadata onto a real backend. Transaction
+  // and lock behavior remain genuine PostgreSQL, including an unassigned XID.
+  const baselineHash = await monitor.query("select md5(:'consent_baseline')");
+  const inspectRow = async (overrides) => {
+    const columns = [
+      "datid",
+      "pid",
+      "backend_start",
+      "xact_start",
+      "backend_xid",
+      "backend_xmin",
+      "state",
+      "backend_type",
+      "client_addr",
+      "client_port",
+      "wait_event_type",
+    ];
+    await monitor.query(
+      `create or replace temporary view consent_activity as select ${columns
+        .map((name) =>
+          overrides[name]
+            ? `case when a.pid=${firstPid} then ${overrides[name]} else a.${name} end as ${name}`
+            : `a.${name}`,
+        )
+        .join(",")} from pg_catalog.pg_stat_activity a`,
+    );
+    return JSON.parse(
+      await monitor.query(
+        drain.replace(
+          "pg_catalog.pg_stat_activity",
+          "pg_temp.consent_activity",
+        ),
+      ),
+    );
+  };
+  const quiescentLauncher = {
+    backend_type: "'pg_cron launcher'::text",
+    state: "null::text",
+    xact_start: "null::timestamptz",
+    backend_xid: "null::xid",
+    backend_xmin: "null::xid",
+    client_addr: "null::inet",
+    client_port: "null::integer",
+    wait_event_type: "'Extension'::text",
+  };
+  const refused = async (metadata) => {
+    const result = await inspectRow(metadata);
+    assert.equal(result.decision, "NO-GO: prerequisites");
+    assert.equal(result.checks.visibility_complete, false);
+  };
+  assert.equal(
+    (await inspectRow(quiescentLauncher)).decision,
+    "GO: original cohort drained",
+  );
+  await refused({
+    ...quiescentLauncher,
+    backend_type: "'unreviewed worker'::text",
+  });
+  // A client-selected label must never become the server's worker classification.
+  await first.query("set application_name='pg_cron launcher'");
+  await refused({ state: "null::text" });
+  await refused({ ...quiescentLauncher, backend_start: "null::timestamptz" });
+  await refused({ ...quiescentLauncher, state: "'disabled'::text" });
+  await refused({ ...quiescentLauncher, wait_event_type: "null::text" });
+
+  await first.query("begin; select 1");
+  assert.equal(
+    await monitor.query(`select backend_xid is null and xact_start is not null
+    from pg_stat_activity where pid=${firstPid}`),
+    "t",
+  );
+  assert.equal(
+    await monitor.query(`select exists(select 1 from pg_locks
+    where pid=${firstPid} and locktype='virtualxid' and mode='ExclusiveLock' and granted)`),
+    "t",
+  );
+  await refused({ ...quiescentLauncher, xact_start: undefined });
+  // Even if all activity transaction fields look empty, the real VXID vetoes it.
+  await refused(quiescentLauncher);
+  await refused({ state: "'unrecognized state'::text" });
+  await first.query(
+    "insert into public.rate_limits values('drain-launcher-xid',1,now())",
+  );
+  assert.equal(
+    await monitor.query(
+      `select backend_xid is not null from pg_stat_activity where pid=${firstPid}`,
+    ),
+    "t",
+  );
+  await refused({ ...quiescentLauncher, backend_xid: undefined });
+  await first.query("rollback");
+  assert.equal(
+    (await inspectRow(quiescentLauncher)).decision,
+    "GO: original cohort drained",
+  );
+  await monitor.query("drop view pg_temp.consent_activity");
+
+  const hidden = openClient("refund_test_owner");
+  await hidden.query("set track_activities=off");
+  assert.equal((await inspect()).checks.visibility_complete, false);
+  await hidden.query("set track_activities=on");
+  await hidden.close();
+  await monitor.query("set track_activities=off");
+  assert.equal((await inspect()).checks.visibility_complete, false);
+  await monitor.query("set track_activities=on");
+  assert.equal((await inspect()).decision, "GO: original cohort drained");
+  assert.equal(
+    await monitor.query("select md5(:'consent_baseline')"),
+    baselineHash,
+    "repeated inspections must preserve the original cohort, including on NO-GO",
+  );
+  console.log(
+    "PASS: narrow launcher exception; real open/VXID/XID transactions, unknown/hidden/disabled activity and tracking failure refuse GO; read-only cohort preserved",
+  );
+
+  await observer.query(
+    "alter function public.check_rate(text,integer) cost 101",
+  );
+  assert.equal((await inspect()).decision, "NO-GO: identity/catalog drift");
+  await observer.query(
+    "alter function public.check_rate(text,integer) cost 100",
+  );
+  assert.equal((await inspect()).decision, "GO: original cohort drained");
+  console.log(
+    "PASS: old active frame and idle transaction detected; incomplete visibility, assigned XID and catalog drift refuse GO; same-backend new transaction accepted after drain",
+  );
+
+  const service = openClient("service_role");
+  const fresh = crypto.randomUUID();
+  const capture = `select public.capture_fan('jona-ferreira','${fresh}',
+    '${fresh}@example.invalid','en','stay_close','{}','{}',true,'pre-hardening')`;
+  const captured = await service.query(capture);
+  assert.equal(await service.query(capture), captured);
+  assert.equal(
+    await service.query(
+      `select status from public.consent_records where fan_id='${captured}'`,
+    ),
+    "pending",
+  );
+  await service.query(`do $$ begin
+    perform public.update_email_consent('jona-ferreira','${captured}','granted');
+    raise exception 'legacy grant unexpectedly accepted';
+    exception when insufficient_privilege then
+      if sqlerrm<>'unauthorized' then raise; end if;
+  end $$`);
+  assert.equal(
+    await service.query(
+      `select public.update_email_consent('jona-ferreira','${captured}','revoked')`,
+    ),
+    "",
+  );
+  assert.equal(
+    await service.query(`select public.email_permission('${captured}')`),
+    "f",
+  );
+  assert.equal(
+    await service.query(`select count(*) from public.delivery_job_audit a
+    join public.delivery_jobs j on j.id=a.job_id where j.fan_id='${captured}' and a.action='created'`),
+    "1",
+  );
+  assert.equal(await legacySnapshot(observer, legacy.fan), legacy.snapshot);
+  await service.close();
+  assert.equal((await inspect()).decision, "GO: original cohort drained");
+  console.log(
+    "PASS: hardened legacy capture/replay, revoke-only RPC, normal audit and historical payment/entitlement preservation; no new consent capability",
+  );
+}
+
 // Apply the real migration around ordinary legacy transactions and DDL locks.
 export async function testConsentMigrationBoundary({
   observer,
@@ -870,5 +1237,48 @@ export async function testConsentDatabase({
   assert.equal((await state(firstFan)).allowed, true);
   console.log(
     "PASS: real first-write identity race and new opt-in serialized after unsubscribe",
+  );
+
+  const retryRequest = crypto.randomUUID();
+  const retryEmail = `${retryRequest}@example.invalid`;
+  await first.query("begin");
+  const retryFan = await first.query(capture(retryEmail, retryRequest));
+  const repeatedCapture = second.query(capture(retryEmail, retryRequest));
+  await blocked();
+  await first.query("commit");
+  assert.equal(await repeatedCapture, retryFan);
+  assert.deepEqual(
+    JSON.parse(
+      await observer.query(`select jsonb_build_array(
+        (select count(*) from fans where email_normalized='${retryEmail}'),
+        (select count(*) from capture_requests where id='${retryRequest}'),
+        (select count(*) from fan_events where event_id='capture:${retryRequest}'),
+        (select count(*) from consent_records where fan_id='${retryFan}' and status='pending'),
+        (select count(*) from delivery_jobs where dedupe_key='capture:${retryRequest}'))`),
+    ),
+    [1, 1, 1, 1, 1],
+  );
+  console.log(
+    "PASS: concurrent identical capture retries preserve one fan, request, event, pending consent and job",
+  );
+
+  const independentFirst = await setup();
+  const independentSecond = await setup();
+  await first.query("begin");
+  assert.equal(
+    await first.query(confirm(independentFirst.fan, independentFirst.request)),
+    "t",
+  );
+  assert.equal(
+    await second.query(
+      confirm(independentSecond.fan, independentSecond.request),
+    ),
+    "t",
+  );
+  await first.query("rollback");
+  assert.equal((await state(independentFirst.fan)).allowed, false);
+  assert.equal((await state(independentSecond.fan)).allowed, true);
+  console.log(
+    "PASS: separate-fan confirmation commits before the other fan transaction ends; rollback stays isolated",
   );
 }

@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import { testEmailConcurrency } from "./email_database.mjs";
 import {
   seedConsentMigration,
+  testConsentPreHardening,
   testConsentMigrationBoundary,
   testConsentDatabase,
 } from "./consent_database.mjs";
@@ -109,6 +110,12 @@ function connect(socket, user = "consent_test_owner") {
 
 export async function runRefundConcurrencyTests() {
   const consentOnly = process.argv.includes("--consent-only");
+  const preHardening = process.argv.includes("--pre-hardening");
+  const cronLauncher = process.argv.includes("--cron-launcher");
+  assert.ok(
+    !cronLauncher || preHardening,
+    "--cron-launcher requires --pre-hardening",
+  );
   if (process.platform === "win32") {
     console.log(
       "SKIP: database concurrency requires local PostgreSQL Unix sockets.",
@@ -158,7 +165,7 @@ export async function runRefundConcurrencyTests() {
         join(directory, "postgres.log"),
         "-w",
         "-o",
-        `-F -c listen_addresses= -c unix_socket_directories=${directory} -c unix_socket_permissions=0700 -c max_connections=10`,
+        `-F -c listen_addresses= -c unix_socket_directories=${directory} -c unix_socket_permissions=0700 -c max_connections=10${cronLauncher ? " -c shared_preload_libraries=pg_cron -c cron.database_name=postgres" : ""}`,
         "start",
       ],
       { env: localEnv },
@@ -191,7 +198,7 @@ export async function runRefundConcurrencyTests() {
       const migration = await readFile(new URL(name, migrations), "utf8");
       if (name === "20261106233441_atomic_email_consent.sql") {
         legacy = await seedConsentMigration(observer);
-        await testConsentMigrationBoundary({
+        const boundary = {
           observer,
           first,
           second,
@@ -201,7 +208,24 @@ export async function runRefundConcurrencyTests() {
             clients.push(client);
             return client;
           },
-        });
+        };
+        if (preHardening) {
+          await testConsentPreHardening({
+            ...boundary,
+            monitor: bootstrap,
+            cronLauncher,
+            operation: await readFile(
+              new URL("../ops/consent_pre_hardening.sql", import.meta.url),
+              "utf8",
+            ),
+            drain: await readFile(
+              new URL("../ops/consent_drain.sql", import.meta.url),
+              "utf8",
+            ),
+            legacy,
+          });
+          await observer.query(migration);
+        } else await testConsentMigrationBoundary(boundary);
       } else await observer.query(migration);
     }
     const service = connect(directory, "service_role");
