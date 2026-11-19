@@ -12,6 +12,7 @@ import {
 import { catalog, runtime } from "../config/runtime";
 import { TransactionExperience } from "../features/checkout/TransactionExperience";
 import { PrivacyControls } from "../features/fan-capture/PrivacyControls";
+import { PrivacyPage } from "../features/fan-capture/PrivacyPage";
 import { attribution } from "../services/attribution";
 import { analytics } from "../services/analytics";
 import { AudioProvider } from "./AudioProvider";
@@ -84,6 +85,7 @@ function AppShell() {
   const [resumeAmount, setResumeAmount] = useState<number>();
   const location = useLocation();
   const releaseRoute = useMatch("/music/:slug");
+  const privacyRoute = Boolean(useMatch("/privacy"));
   useRouteScroll();
   const { t, locale } = useLocale();
   const release = releases.find(
@@ -91,7 +93,8 @@ function AppShell() {
   );
   useLayoutEffect(() => {
     const metadata = release && getReleaseMetadata(release, locale);
-    const { title, description } = metadata ?? t.meta;
+    const { title, description } =
+      metadata ?? (privacyRoute ? t.privacy : t.meta);
     document.title = title;
     document
       .querySelector('meta[name="description"]')
@@ -107,7 +110,7 @@ function AppShell() {
       }
       document.head.append(node);
     }
-  }, [release, locale, t.meta]);
+  }, [release, locale, privacyRoute, t.meta, t.privacy]);
   useEffect(() => {
     attribution();
     if (window.location.search)
@@ -122,7 +125,7 @@ function AppShell() {
     <>
       <Header
         key={location.pathname}
-        variant={releaseRoute ? "release" : "home"}
+        variant={releaseRoute || privacyRoute ? "release" : "home"}
         onSupport={() => {
           setResumeAmount(undefined);
           setSupportItem("tip");
@@ -136,6 +139,7 @@ function AppShell() {
           }
         />
         <Route path="/music/:slug" element={<ReleasePage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route
           path="*"
           element={
@@ -158,6 +162,9 @@ function AppShell() {
           }}
         />
         <PrivacyControls />
+        <Link className="footer-privacy-link" to="/privacy">
+          {t.privacy.title}
+        </Link>
       </footer>
       {runtime.commerceEnabled && supportItem !== null && (
         <SupportDialog

@@ -151,7 +151,9 @@ test("the featured catalog and every release page share the same streaming desti
   await expect(
     page.getByRole("link", { name: "Latest release: Shorty" }),
   ).toHaveAttribute("href", "/music/shorty");
-  await expect(page.locator(".round-play")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Play Shorty preview" }),
+  ).toBeVisible();
   await expect(page.locator(".active-art img")).toHaveJSProperty(
     "naturalWidth",
     2000,
@@ -176,6 +178,13 @@ test("the featured catalog and every release page share the same streaming desti
       );
       await expect(item).toHaveAttribute("target", "_blank");
       await expect(item).toHaveAttribute("rel", "noopener noreferrer");
+      await expect
+        .poll(() =>
+          item
+            .locator(".stream-logo")
+            .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+        )
+        .toBeGreaterThan(0);
     }
   }
 
@@ -194,9 +203,175 @@ test("the featured catalog and every release page share the same streaming desti
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       release.title,
     );
-    await listen.click();
-    await checkDestinations(release);
+    await expect(listen).toHaveCount(0);
+    const group = page.getByRole("group", { name: "Listen to this release" });
+    const platforms = streamingPlatforms.filter(
+      (platform) => release.streamingLinks[platform],
+    );
+    await expect(group.getByRole("link")).toHaveCount(platforms.length);
+    for (const [index, platform] of platforms.entries()) {
+      const item = group.getByRole("link").nth(index);
+      await expect(item).toHaveAccessibleName(
+        `Listen to ${release.title} on ${platformNames[platform]}`,
+      );
+      await expect(item).toHaveAttribute(
+        "href",
+        release.streamingLinks[platform]!,
+      );
+      await expect(item).toHaveAttribute("rel", "noopener noreferrer");
+      await expect
+        .poll(() =>
+          item
+            .locator(".stream-logo")
+            .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+        )
+        .toBeGreaterThan(0);
+    }
+    await expect(
+      page
+        .locator(".capture-form")
+        .getByRole("link", { name: "Privacy Policy" }),
+    ).toHaveAttribute("href", "/privacy");
   }
+});
+
+test("release indicators slide in one row at desktop, tablet and mobile widths", async ({
+  page,
+}) => {
+  const visible = () =>
+    page.locator(".release-tabs").evaluate((strip) => {
+      const viewport = strip.getBoundingClientRect();
+      return Array.from(strip.children)
+        .filter((item) => {
+          const rect = item.getBoundingClientRect();
+          return (
+            rect.left >= viewport.left - 1 && rect.right <= viewport.right + 1
+          );
+        })
+        .map((item) => item.textContent);
+    });
+  const titles = releases.map((release) => release.title);
+  await page.goto("/#music");
+  for (const [width, count] of [
+    [375, 3],
+    [390, 3],
+    [768, 4],
+    [1024, 4],
+    [1440, 6],
+  ]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({
+      reducedMotion: width === 1440 ? "no-preference" : "reduce",
+    });
+    await page.reload();
+    const strip = page.getByRole("group", { name: "Choose a release" });
+    await expect(strip.getByRole("button")).toHaveCount(titles.length);
+    await expect.poll(visible).toEqual(titles.slice(0, count));
+    expect(
+      await strip
+        .getByRole("button")
+        .evaluateAll(
+          (indicators) =>
+            new Set(
+              indicators.map(
+                (indicator) => indicator.getBoundingClientRect().top,
+              ),
+            ).size,
+        ),
+    ).toBe(1);
+    const next = page.getByRole("button", { name: "Next release" });
+    for (let index = 1; index <= count; index++) await next.click();
+    await expect(strip.locator('[aria-current="true"]')).toHaveText(
+      titles[count],
+    );
+    await expect.poll(visible).toEqual(titles.slice(1, count + 1));
+    for (const release of releases.slice(count + 1)) {
+      await next.click();
+      await expect(page.locator(".release-head h3")).toHaveText(release.title);
+    }
+    await expect.poll(visible).toEqual(titles.slice(-count));
+    await next.click();
+    await expect.poll(visible).toEqual(titles.slice(0, count));
+    await page.getByRole("button", { name: "Previous release" }).click();
+    await expect.poll(visible).toEqual(titles.slice(-count));
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+  }
+});
+
+test("new previews play from their own files on one audio element without autoplay", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    const previews: HTMLAudioElement[] = [];
+    Object.assign(window, { previews });
+    window.Audio = new Proxy(window.Audio, {
+      construct(target, args) {
+        const element = Reflect.construct(target, args) as HTMLAudioElement;
+        previews.push(element);
+        return element;
+      },
+    });
+  });
+  const media = () =>
+    page.evaluate(() => {
+      const { previews } = window as Window & { previews?: HTMLAudioElement[] };
+      return (previews ?? [])
+        .filter((audio) => audio.src)
+        .map((audio) => ({
+          path: new URL(audio.src).pathname,
+          paused: audio.paused,
+          duration: audio.duration,
+          time: audio.currentTime,
+        }));
+    });
+  await page.goto("/#music");
+  const strip = page.getByRole("group", { name: "Choose a release" });
+  for (const [index, release] of [
+    releases[0],
+    ...releases.slice(7),
+  ].entries()) {
+    await strip
+      .getByRole("button", { name: release.title, exact: true })
+      .click();
+    if (index === 0) expect(await media()).toEqual([]);
+    const playing = page.getByRole("button", {
+      name: `Pause ${release.title} preview`,
+    });
+    await page
+      .getByRole("button", { name: `Play ${release.title} preview` })
+      .click();
+    await expect(playing).toBeVisible();
+    await expect
+      .poll(async () => (await media())[0]?.time ?? 0)
+      .toBeGreaterThan(0);
+    const states = await media();
+    expect(states).toHaveLength(1);
+    expect(states[0]).toMatchObject({
+      path: release.previewUrl,
+      paused: false,
+    });
+    expect(states[0].duration).toBeCloseTo(30, 1);
+  }
+  await page.getByRole("link", { name: "Release page" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("12 Uvas");
+  await page
+    .getByRole("button", { name: "Pause preview", exact: true })
+    .click();
+  await expect.poll(media).toEqual([
+    expect.objectContaining({
+      path: "/assets/preview-12-uvas.m4a",
+      paused: true,
+    }),
+  ]);
+  await page.goBack();
+  await expect(
+    page.getByRole("button", { name: "Open audio player" }),
+  ).toBeVisible();
+  expect(await media()).toHaveLength(1);
 });
 
 test("Shorty listening fits a small Spanish viewport", async ({ page }) => {
@@ -210,39 +385,49 @@ test("Shorty listening fits a small Spanish viewport", async ({ page }) => {
   });
   const listen = page.getByRole("button", { name: "Escuchar en" });
   const menu = page.getByRole("menu", { name: "Escuchar en" });
-  for (const path of ["/#music", "/music/shorty"]) {
-    await page.goto(path);
-    await expect(page.locator("html")).toHaveAttribute("lang", "es");
-    await listen.press("ArrowDown");
-    const spotify = menu.getByRole("menuitem", { name: "Spotify" });
-    await expect(spotify).toBeFocused();
-    await page.keyboard.press("ArrowDown");
+  await page.goto("/#music");
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await listen.press("ArrowDown");
+  const spotify = menu.getByRole("menuitem", { name: "Spotify" });
+  await expect(spotify).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    menu.getByRole("menuitem", { name: "Apple Music" }),
+  ).toBeFocused();
+  await page.keyboard.press("End");
+  const tidal = menu.getByRole("menuitem", { name: "TIDAL" });
+  await expect(tidal).toBeFocused();
+  await expect(tidal).toBeInViewport();
+  const bounds = (await menu.boundingBox())!;
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+  await page.keyboard.press("Escape");
+  await expect(listen).toBeFocused();
+  await listen.click();
+  await expect(menu).toBeVisible();
+  const button = (await listen.boundingBox())!;
+  await page.mouse.click(1, button.y + button.height / 2);
+  await expect(menu).toBeHidden();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+  if (process.env.VITE_COMMERCE_ENABLED === "false") {
     await expect(
-      menu.getByRole("menuitem", { name: "Apple Music" }),
-    ).toBeFocused();
-    await page.keyboard.press("End");
-    const tidal = menu.getByRole("menuitem", { name: "TIDAL" });
-    await expect(tidal).toBeFocused();
-    await expect(tidal).toBeInViewport();
-    const bounds = (await menu.boundingBox())!;
-    expect(bounds.x).toBeGreaterThanOrEqual(0);
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
-    await page.keyboard.press("Escape");
-    await expect(listen).toBeFocused();
-    await listen.click();
-    await expect(menu).toBeVisible();
-    const button = (await listen.boundingBox())!;
-    await page.mouse.click(1, button.y + button.height / 2);
-    await expect(menu).toBeHidden();
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(320);
-    if (process.env.VITE_COMMERCE_ENABLED === "false") {
-      await expect(
-        page.getByRole("button", { name: "APOYA EL CAMINO" }),
-      ).toHaveCount(0);
-    }
+      page.getByRole("button", { name: "APOYA EL CAMINO" }),
+    ).toHaveCount(0);
   }
+  await page.goto("/music/shorty");
+  const icons = page.getByRole("group", { name: "Escucha este lanzamiento" });
+  const taps = await icons.getByRole("link").evaluateAll((links) =>
+    links.map((link) => {
+      const { x, right, width, height } = link.getBoundingClientRect();
+      return x >= 0 && right <= innerWidth && width >= 44 && height >= 44;
+    }),
+  );
+  expect(taps).toEqual([true, true, true, true, true]);
+  await expect(
+    icons.getByRole("link", { name: "Escucha Shorty en Spotify" }),
+  ).toBeVisible();
   await expect(page).toHaveTitle("Shorty — Jona Ferreira & Sbfaraon");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
@@ -256,8 +441,43 @@ test("Shorty listening fits a small Spanish viewport", async ({ page }) => {
     "content",
     /^Escucha Shorty/,
   );
-  await expect(page.locator(".preview-action")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Reproducir adelanto" }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("signup and footer links open the privacy policy in the current language", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#stay-close");
+  const signup = page.locator(".capture-form");
+  await expect(signup.getByRole("checkbox")).not.toBeChecked();
+  await signup.getByRole("link", { name: "Privacy Policy" }).click();
+  await expect(page).toHaveURL("/privacy");
+  await expect(
+    page.getByRole("heading", { name: "Privacy Policy", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".experience-footer")
+      .getByRole("link", { name: "Privacy Policy" }),
+  ).toHaveAttribute("href", "/privacy");
+  await page.evaluate(() => localStorage.setItem("jona:locale", "es"));
+  await page.goto("/music/shorty");
+  await expect(
+    signup.getByRole("button", { name: "ÚNETE A LA CULTURA" }),
+  ).toBeVisible();
+  await signup.getByRole("link", { name: "Política de privacidad" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Política de privacidad", level: 1 }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle("Política de privacidad");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    375,
+  );
 });
 
 test("Vault states and reduced motion remain accessible", async ({ page }) => {

@@ -11,7 +11,7 @@ import { FanCaptureForm } from "../fan-capture/FanCaptureForm";
 import { useAudio } from "../../hooks/useAudio";
 import { useSectionMotion } from "../../hooks/useSectionMotion";
 import { artist } from "../../data/content";
-import { StreamingMenu } from "./StreamingMenu";
+import { StreamingLinks } from "./StreamingLinks";
 
 export function ReleasePage() {
   const { t, locale } = useLocale();
@@ -85,9 +85,9 @@ export function ReleasePage() {
                 { month: "long", day: "numeric", year: "numeric" },
               )}
             </p>
-            <div className="release-listening" aria-label={t.release.listen}>
+            <div className="release-listening">
               <div className="release-page-actions">
-                <StreamingMenu key={release.id} release={release} />
+                <StreamingLinks release={release} />
                 {release.previewUrl && (
                   <button
                     className="preview-action"
@@ -130,7 +130,7 @@ export function ReleasePage() {
                 <h2 id="release-capture-heading">
                   {t.release.stay} <em>{t.release.close}</em>
                 </h2>
-                <p>{t.release.invitation}</p>
+                <p>{t.stay.intro}</p>
               </div>
               <FanCaptureForm key={release.id} compact />
             </section>

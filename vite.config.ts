@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { releases } from "./src/data/content";
 import { getReleaseMetadata } from "./src/data/releaseMetadata";
+import { spanish } from "./src/i18n/site";
 
 const escapeHtml = (value: string) =>
   value
@@ -16,7 +17,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     {
-      name: "release-html",
+      name: "page-html",
       apply: "build",
       generateBundle: {
         order: "post",
@@ -25,11 +26,14 @@ export default defineConfig({
           if (document?.type !== "asset" || typeof document.source !== "string")
             return;
           // Share the SPA entry point while serving metadata to crawlers before JavaScript runs.
-          for (const release of releases) {
-            const { title, description, tags } = getReleaseMetadata(
-              release,
-              "es",
-            );
+          const pages = [
+            ...releases.map((release) => ({
+              fileName: `music/${release.slug}.html`,
+              ...getReleaseMetadata(release, "es"),
+            })),
+            { fileName: "privacy.html", ...spanish.privacy, tags: [] },
+          ];
+          for (const { fileName, title, description, tags } of pages) {
             const head = tags
               .map(({ tag, attrs }) => {
                 const attributes = Object.entries(attrs)
@@ -51,7 +55,7 @@ export default defineConfig({
               .replace("</head>", () => `${head}\n</head>`);
             this.emitFile({
               type: "asset",
-              fileName: `music/${release.slug}.html`,
+              fileName,
               source,
             });
           }

@@ -1,8 +1,8 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
-import { platformNames, streamingPlatforms } from "../../config/streaming";
+import { getStreamingLinks } from "../../config/streaming";
 import type { MusicRelease } from "../../domain/types";
 import { useLocale } from "../../hooks/useLocale";
-import { analytics } from "../../services/analytics";
+import { StreamingLink } from "./StreamingLinks";
 
 export function StreamingMenu({ release }: { release: MusicRelease }) {
   const { t } = useLocale();
@@ -11,9 +11,7 @@ export function StreamingMenu({ release }: { release: MusicRelease }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const id = useId();
-  const platforms = streamingPlatforms.filter(
-    (platform) => release.streamingLinks[platform],
-  );
+  const links = getStreamingLinks(release);
 
   function close() {
     setOpenAt(null);
@@ -57,7 +55,7 @@ export function StreamingMenu({ release }: { release: MusicRelease }) {
     };
   }, [openAt]);
 
-  if (!platforms.length) return null;
+  if (!links.length) return null;
 
   return (
     <div
@@ -122,25 +120,13 @@ export function StreamingMenu({ release }: { release: MusicRelease }) {
             }
           }}
         >
-          {platforms.map((platform) => (
-            <a
-              role="menuitem"
-              key={platform}
-              tabIndex={-1}
-              href={release.streamingLinks[platform]}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                close();
-                analytics.track("DSPClick", {
-                  release_slug: release.slug,
-                  platform,
-                });
-              }}
-            >
-              {platformNames[platform]}
-              <img src="/assets/external.svg" alt="" width="12" height="12" />
-            </a>
+          {links.map((link) => (
+            <StreamingLink
+              key={link.platform}
+              link={link}
+              release={release}
+              onSelect={close}
+            />
           ))}
         </div>
       )}

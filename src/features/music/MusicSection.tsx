@@ -1,5 +1,5 @@
 import { useLocale, text, audioError } from "../../hooks/useLocale";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, LoaderCircle, Play, RotateCw } from "lucide-react";
 import type { MusicRelease } from "../../domain/types";
@@ -23,8 +23,39 @@ export function MusicSection({
       0,
     ),
   );
+  const indicators = useRef<HTMLDivElement>(null);
   const audio = useAudio();
   const active = releases[index];
+
+  useLayoutEffect(() => {
+    const strip = indicators.current;
+    const selected = strip?.children.item(index) as HTMLElement | null;
+    if (!strip || !selected) return;
+
+    const revealSelection = (behavior: ScrollBehavior) => {
+      const start = selected.offsetLeft;
+      const end = start + selected.offsetWidth;
+      if (start < strip.scrollLeft - 1) {
+        strip.scrollTo({ left: start, behavior });
+      } else if (end > strip.scrollLeft + strip.clientWidth + 1) {
+        strip.scrollTo({ left: end - strip.clientWidth, behavior });
+      }
+    };
+    revealSelection(
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    );
+    let width = strip.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (strip.clientWidth === width) return;
+      width = strip.clientWidth;
+      revealSelection("instant");
+    });
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [index]);
+
   if (!active) return null;
   const previous = releases[index === 0 ? releases.length - 1 : index - 1];
   const next = releases[(index + 1) % releases.length];
@@ -122,7 +153,13 @@ export function MusicSection({
               onClick={() => select(releases.indexOf(previous))}
               aria-label={text(t.common.select, { title: previous.title })}
             >
-              <img src={previous.coverArt} alt="" />
+              <img
+                src={previous.coverArt}
+                alt=""
+                width="640"
+                height="640"
+                loading="lazy"
+              />
             </button>
             <div className="active-art" key={active.id}>
               <img
@@ -130,6 +167,7 @@ export function MusicSection({
                 alt={text(t.common.cover, { title: active.title })}
                 width="640"
                 height="640"
+                loading="lazy"
               />
               {audio.release?.id === active.id && (
                 <span className="playing-chip">
@@ -150,13 +188,19 @@ export function MusicSection({
               onClick={() => select(releases.indexOf(next))}
               aria-label={text(t.common.select, { title: next.title })}
             >
-              <img src={next.coverArt} alt="" />
+              <img
+                src={next.coverArt}
+                alt=""
+                width="640"
+                height="640"
+                loading="lazy"
+              />
             </button>
           </div>
         </div>
         <div className="music-controls reveal">
           <span>
-            {Math.floor(index / 2) + 1} / {Math.ceil(releases.length / 2)}
+            {index + 1} / {releases.length}
           </span>
           <button
             className="circle-arrow"
@@ -177,6 +221,7 @@ export function MusicSection({
         </div>
         <div
           className="release-tabs reveal"
+          ref={indicators}
           role="group"
           aria-label={t.music.choose}
         >

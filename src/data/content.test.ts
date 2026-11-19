@@ -2,6 +2,8 @@ import { expect, test } from "vitest";
 import { artist, releases } from "./content";
 import { localContentRepository } from "../repositories/localContentRepository";
 import type { MusicRelease } from "../domain/types";
+import { getStreamingLinks } from "../config/streaming";
+import { existsSync } from "node:fs";
 
 const destinationPatterns: Record<
   keyof MusicRelease["streamingLinks"],
@@ -15,35 +17,69 @@ const destinationPatterns: Record<
   tidal: /^https:\/\/tidal\.com\/track\/\d+$/,
 };
 
-test("the featured release is Shorty with the supplied cover and no local preview", () => {
+test("the featured release is Shorty with the supplied cover and its own preview", () => {
   expect(releases[0]).toMatchObject({
     id: artist.featuredReleaseId,
     slug: "shorty",
     releaseDate: "2026-10-30",
     artistCredit: "Jona Ferreira & Sbfaraon",
     coverArt: "/assets/cover-shorty.webp",
+    previewUrl: "/assets/preview-shorty.m4a",
   });
-  expect(releases[0].previewUrl).toBeUndefined();
-  expect(releases.slice(1).every((release) => release.previewUrl)).toBe(true);
 });
 
 test("the catalog serves unique release-specific HTTPS links across both lookups", async () => {
   const catalog = await localContentRepository.listReleases(artist.id);
   expect(catalog).toEqual(releases);
+  expect(catalog.map(({ slug }) => slug)).toEqual([
+    "shorty",
+    "accion",
+    "darte-nota",
+    "contenta",
+    "cafe",
+    "caramelo",
+    "viaje-astral",
+    "lalo",
+    "sunday",
+    "fria",
+    "me-avisas",
+    "12-uvas",
+  ]);
+  expect(new Set(catalog.map(({ id }) => id)).size).toBe(catalog.length);
   expect(new Set(catalog.map(({ slug }) => slug)).size).toBe(catalog.length);
 
   const links = new Set<string>();
   for (const release of catalog) {
+    expect(release.previewUrl).toBe(`/assets/preview-${release.slug}.m4a`);
+    expect(existsSync(`public${release.previewUrl}`)).toBe(true);
+    expect(existsSync(`public${release.coverArt}`)).toBe(true);
     expect(
       await localContentRepository.getReleaseBySlug(artist.id, release.slug),
     ).toBe(release);
-    for (const platform of Object.keys(
-      destinationPatterns,
-    ) as (keyof typeof destinationPatterns)[]) {
-      const url = release.streamingLinks[platform] ?? "";
-      expect(url).toMatch(destinationPatterns[platform]);
-      expect(links.has(url)).toBe(false);
-      links.add(url);
+    const destinations = getStreamingLinks(release);
+    expect(destinations).toHaveLength(
+      Object.keys(release.streamingLinks).length,
+    );
+    for (const { platform, href } of destinations) {
+      expect(href).toMatch(destinationPatterns[platform]);
+      expect(links.has(href)).toBe(false);
+      links.add(href);
     }
+    expect(destinations.length).toBeGreaterThanOrEqual(4);
   }
+});
+
+test("streaming links reject wrong origins and credentials", () => {
+  expect(
+    getStreamingLinks({
+      ...releases[0],
+      streamingLinks: {
+        spotify: "https://open.spotify.com.example.org/album/example",
+        appleMusic: "https://login@music.apple.com/us/album/example",
+        youtube: "javascript:alert(1)",
+        amazonMusic: "http://music.amazon.com/albums/example",
+        tidal: "https://tidal.com/track/567981978",
+      },
+    }).map(({ platform }) => platform),
+  ).toEqual(["tidal"]);
 });

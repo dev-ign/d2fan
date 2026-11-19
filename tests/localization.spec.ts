@@ -46,10 +46,14 @@ test("Spanish first, neutral globe, accessible selection, persistence and metada
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.locator(".featured-card").click();
-  await expect(page.getByRole("button", { name: "Listen on" })).toBeVisible();
-  await expect(page.locator(".preview-action")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Listen to Shorty on Spotify" }),
+  ).toBeVisible();
+  await expect(page.locator(".preview-action")).toBeVisible();
   await switchLocale(page, "es");
-  await expect(page.getByRole("button", { name: "Escuchar en" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Escucha Shorty en Spotify" }),
+  ).toBeVisible();
   await expect(page).toHaveURL("/music/shorty");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
