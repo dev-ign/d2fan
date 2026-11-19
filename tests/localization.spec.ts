@@ -46,12 +46,11 @@ test("Spanish first, neutral globe, accessible selection, persistence and metada
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.locator(".featured-card").click();
-  await expect(page.locator(".preview-action")).toContainText("Play preview");
+  await expect(page.getByRole("button", { name: "Listen on" })).toBeVisible();
+  await expect(page.locator(".preview-action")).toHaveCount(0);
   await switchLocale(page, "es");
-  await expect(page.locator(".preview-action")).toContainText(
-    "Reproducir adelanto",
-  );
-  await expect(page).toHaveURL("/music/accion");
+  await expect(page.getByRole("button", { name: "Escuchar en" })).toBeVisible();
+  await expect(page).toHaveURL("/music/shorty");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await trigger.click();
@@ -148,6 +147,7 @@ test("language changes preserve playback, release selection, scroll context and 
     });
   });
   await page.goto("/#music");
+  await page.getByRole("button", { name: "Acción", exact: true }).click();
   await page
     .getByRole("button", { name: "Reproducir adelanto de Acción", exact: true })
     .click();
@@ -303,6 +303,7 @@ test("both languages fit all nine widths and simplified controls retain accessib
           path: `${output}/music-${locale}-${width}.png`,
         });
         await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: "Acción", exact: true }).click();
         await page
           .getByRole("button", {
             name:

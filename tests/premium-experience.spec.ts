@@ -116,6 +116,7 @@ test("release navigation traps and restores focus, hides player chrome and prese
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#music");
+  await page.getByRole("button", { name: "Acción", exact: true }).click();
   await page.getByRole("button", { name: "Play Acción preview" }).click();
   await expect(
     page.getByRole("button", { name: "Pause Acción preview" }),
@@ -186,9 +187,13 @@ test("release capture keeps listening open, preserves first touch and retries wi
   await page.goto("/?utm_source=instagram&utm_campaign=first-touch");
   await page.locator(".hero").waitFor();
   await page.goto("/music/cafe?utm_source=youtube&utm_campaign=latest");
-  const listening = page.getByRole("link", { name: "Apple Music" });
+  const listening = page.getByRole("button", { name: "Listen on" });
   await expect(listening).toBeVisible();
-  await expect(listening).toHaveAttribute("href", /music.apple.com/);
+  await listening.click();
+  await expect(
+    page.getByRole("menuitem", { name: "Apple Music" }),
+  ).toHaveAttribute("href", /music.apple.com/);
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "JOIN LA CULTURA" }).click();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
   expect(requests).toHaveLength(0);
@@ -282,7 +287,7 @@ test("mobile release pages put listening in view and keep forms reachable on sho
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator(".release-artwork img")).toBeVisible();
     const listen = await page
-      .getByRole("link", { name: "Apple Music" })
+      .getByRole("button", { name: "Listen on" })
       .boundingBox();
     if (width < 480)
       expect(listen!.y + listen!.height).toBeLessThanOrEqual(height);

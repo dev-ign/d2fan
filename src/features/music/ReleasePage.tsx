@@ -1,24 +1,17 @@
 import { useLocale, text, audioError } from "../../hooks/useLocale";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  LoaderCircle,
-  Pause,
-  Play,
-  RotateCw,
-} from "lucide-react";
+import { ArrowLeft, LoaderCircle, Pause, Play, RotateCw } from "lucide-react";
 import type { MusicRelease } from "../../domain/types";
 import { catalog } from "../../config/runtime";
-import { platformNames } from "../../config/streaming";
 import { localContentRepository } from "../../repositories/localContentRepository";
 import { resolveReleaseTheme } from "../../domain/releaseTheme";
 import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
 import { FanCaptureForm } from "../fan-capture/FanCaptureForm";
 import { useAudio } from "../../hooks/useAudio";
 import { useSectionMotion } from "../../hooks/useSectionMotion";
-import { analytics } from "../../services/analytics";
+import { artist } from "../../data/content";
+import { StreamingMenu } from "./StreamingMenu";
 
 export function ReleasePage() {
   const { t, locale } = useLocale();
@@ -79,7 +72,9 @@ export function ReleasePage() {
             />
           </div>
           <div className="release-page-copy reveal">
-            <p className="eyebrow release-artist">JONA FERREIRA</p>
+            <p className="eyebrow release-artist">
+              {release.artistCredit ?? artist.displayName}
+            </p>
             <h1 id="release-title" className="display-heading">
               {release.title}
             </h1>
@@ -92,56 +87,34 @@ export function ReleasePage() {
             </p>
             <div className="release-listening" aria-label={t.release.listen}>
               <div className="release-page-actions">
-                {Object.entries(release.streamingLinks).map(
-                  ([platform, url]) =>
-                    url && (
-                      <a
-                        key={platform}
-                        className="button button--bone"
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() =>
-                          analytics.track("DSPClick", {
-                            release_slug: release.slug,
-                            platform,
-                          })
-                        }
-                      >
-                        {
-                          platformNames[
-                            platform as keyof typeof release.streamingLinks
-                          ]
-                        }
-                        <ArrowUpRight size={17} aria-hidden="true" />
-                      </a>
-                    ),
+                <StreamingMenu key={release.id} release={release} />
+                {release.previewUrl && (
+                  <button
+                    className="preview-action"
+                    type="button"
+                    disabled={loading}
+                    onClick={() =>
+                      void (current ? audio.toggle() : audio.play(release))
+                    }
+                  >
+                    {loading ? (
+                      <LoaderCircle size={18} className="spin-icon" />
+                    ) : failed ? (
+                      <RotateCw size={18} />
+                    ) : playing ? (
+                      <Pause size={18} />
+                    ) : (
+                      <Play size={18} />
+                    )}
+                    {loading
+                      ? t.player.loading
+                      : failed
+                        ? t.player.retry
+                        : playing
+                          ? t.player.pause
+                          : t.player.play}
+                  </button>
                 )}
-                <button
-                  className="preview-action"
-                  type="button"
-                  disabled={loading}
-                  onClick={() =>
-                    void (current ? audio.toggle() : audio.play(release))
-                  }
-                >
-                  {loading ? (
-                    <LoaderCircle size={18} className="spin-icon" />
-                  ) : failed ? (
-                    <RotateCw size={18} />
-                  ) : playing ? (
-                    <Pause size={18} />
-                  ) : (
-                    <Play size={18} />
-                  )}
-                  {loading
-                    ? t.player.loading
-                    : failed
-                      ? t.player.retry
-                      : playing
-                        ? t.player.pause
-                        : t.player.play}
-                </button>
               </div>
               {current && audio.error && (
                 <p className="preview-error" role="alert">

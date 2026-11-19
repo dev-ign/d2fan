@@ -8,4 +8,9 @@ export const platformNames: Record<
   appleMusic: "Apple Music",
   youtube: "YouTube Music",
   amazonMusic: "Amazon Music",
+  tidal: "TIDAL",
 };
+
+export const streamingPlatforms = Object.keys(
+  platformNames,
+) as (keyof typeof platformNames)[];
