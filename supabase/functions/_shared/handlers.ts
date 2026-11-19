@@ -90,7 +90,9 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
     // Read only this request's job, never the fan's other messaging history.
     const { data: job, error } = await db()
       .from("delivery_jobs")
-      .select("status,provider_id,sent_at,quarantined_at,email_policy_version")
+      .select(
+        "id,attempts,status,provider_id,sent_at,quarantined_at,email_policy_version",
+      )
       .eq("artist_id", catalog.artistId)
       .eq("fan_id", fan)
       .eq("kind", "capture")
@@ -104,7 +106,36 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
         delivery = job.status;
       else if (["pending", "processing"].includes(job.status)) {
         if (!captureEmailConfigured()) delivery = "disabled";
-        else if (job.email_policy_version === 1) delivery = "queued";
+        else if (job.email_policy_version === 1) {
+          delivery = "queued";
+          // A signup can dispatch only its own fresh job. Never drain backlog or
+          // automatically retry a provider attempt after an ambiguous response.
+          if (job.status === "pending" && job.attempts === 0 && uuid(job.id)) {
+            delivery = "unknown";
+            const response = await fetch(
+              `${env("SUPABASE_URL")}/functions/v1/scheduled-messaging`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${env("SCHEDULER_SECRET")}`,
+                },
+                body: JSON.stringify({
+                  operation: "dispatch_job",
+                  jobId: job.id,
+                }),
+                signal: AbortSignal.timeout(5_000),
+              },
+            );
+            const result = await response.json();
+            if (
+              response.ok &&
+              result.success === true &&
+              result.data?.sent === 1
+            )
+              delivery = "sent";
+          }
+        }
       }
     }
   } catch {

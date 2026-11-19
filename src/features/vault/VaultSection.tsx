@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { VaultItem } from "../../domain/types";
 import { Dialog } from "../../components/Dialog";
 import { Waveform } from "../../components/Waveform";
+import { runtime } from "../../config/runtime";
 
 function VaultCard({
   item,
@@ -20,7 +21,8 @@ function VaultCard({
       type="button"
       className={`vault-card ${className}`}
       onClick={() => onSelect(item)}
-      aria-label={`${copy.title}, ${copy.label}, ${item.status === "available" ? "$" + item.priceMinor / 100 : t.common.comingSoon}`}
+      disabled={!runtime.commerceEnabled}
+      aria-label={`${copy.title}, ${copy.label}, ${runtime.commerceEnabled && item.status === "available" ? "$" + item.priceMinor / 100 : t.common.comingSoon}`}
     >
       <img src={item.artworkUrl} alt="" loading="lazy" />
       <span className="vault-shade" />
@@ -32,9 +34,9 @@ function VaultCard({
           <span>{copy.description}</span>
           {
             <span>
-              <img src="/assets/lock.svg" alt="" width="12" height="12" /> $
-              {item.priceMinor / 100} ·{" "}
-              {item.status === "available"
+              <img src="/assets/lock.svg" alt="" width="12" height="12" />{" "}
+              {runtime.commerceEnabled && `$${item.priceMinor / 100} · `}
+              {runtime.commerceEnabled && item.status === "available"
                 ? t.common.unlock
                 : t.common.comingSoon}
             </span>

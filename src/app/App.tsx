@@ -9,7 +9,7 @@ import {
   useLocation,
   useMatch,
 } from "react-router-dom";
-import { catalog } from "../config/runtime";
+import { catalog, runtime } from "../config/runtime";
 import { TransactionExperience } from "../features/checkout/TransactionExperience";
 import { PrivacyControls } from "../features/fan-capture/PrivacyControls";
 import { attribution } from "../services/attribution";
@@ -132,7 +132,7 @@ function AppShell() {
         />
         <PrivacyControls />
       </footer>
-      {supportItem !== null && (
+      {runtime.commerceEnabled && supportItem !== null && (
         <SupportDialog
           initialAmount={resumeAmount}
           item={supportItem === "tip" ? undefined : supportItem}

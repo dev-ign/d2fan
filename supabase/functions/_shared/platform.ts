@@ -60,7 +60,17 @@ export async function rpc<T>(
   args: Record<string, unknown>,
 ): Promise<T> {
   const { data, error } = await db().rpc(name, args);
-  if (error) throw new Error("database_unavailable");
+  if (error) {
+    // capture_fan raises this fixed exception before any writes on a conflicting
+    // replay. P0001 alone is generic; never translate other RPCs or messages.
+    if (
+      name === "capture_fan" &&
+      error.code === "P0001" &&
+      error.message === "request_conflict"
+    )
+      throw new Error("request_conflict");
+    throw new Error("database_unavailable");
+  }
   return data as T;
 }
 type FileSigningFailureCategory =

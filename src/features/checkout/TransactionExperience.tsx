@@ -7,6 +7,7 @@ import { checkoutService, fanService, vaultService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
 import type { CheckoutStatus } from "../../../supabase/shared/contracts";
 import { vaultItems } from "../../data/content";
+import { runtime } from "../../config/runtime";
 type Feedback =
   | { copy: keyof SiteMessages["transaction"] }
   | { error: string }
@@ -254,17 +255,20 @@ export function TransactionExperience({
               <p role="status">
                 {!status
                   ? t.transaction.verifying
-                  : status.status === "completed"
-                    ? t.transaction.confirmed
-                    : status.status === "refunded"
-                      ? t.transaction.refunded
-                      : status.status === "expired"
-                        ? t.transaction.expired
-                        : status.status === "failed"
-                          ? t.transaction.failed
-                          : cancelled
-                            ? t.transaction.canceled
-                            : t.transaction.waiting}
+                  : !runtime.commerceEnabled &&
+                      !["completed", "refunded"].includes(status.status)
+                    ? t.unavailable
+                    : status.status === "completed"
+                      ? t.transaction.confirmed
+                      : status.status === "refunded"
+                        ? t.transaction.refunded
+                        : status.status === "expired"
+                          ? t.transaction.expired
+                          : status.status === "failed"
+                            ? t.transaction.failed
+                            : cancelled
+                              ? t.transaction.canceled
+                              : t.transaction.waiting}
               </p>
               {purchasedItem && <p>{vaultCopy(purchasedItem, t).title}</p>}
               {(!status ||
@@ -281,6 +285,7 @@ export function TransactionExperience({
             </>
           )}
           {context.mode === "status" &&
+            runtime.commerceEnabled &&
             status &&
             ["expired", "failed"].includes(status.status) &&
             status.purpose === "tip" && (
@@ -300,7 +305,7 @@ export function TransactionExperience({
                 {t.transaction.restart}
               </button>
             )}
-          {status?.checkoutUrl && (
+          {runtime.commerceEnabled && status?.checkoutUrl && (
             <a className="button button--lime" href={status.checkoutUrl}>
               {t.transaction.resume}
             </a>

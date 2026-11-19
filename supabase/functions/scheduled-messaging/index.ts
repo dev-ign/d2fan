@@ -16,7 +16,11 @@ export function emailWorker(req: Request) {
           { status: 401, headers },
         );
       return Response.json(
-        { emailSafetyRevision: "20261027202242", sending: false },
+        {
+          emailSafetyRevision: "20261027202242",
+          jobDispatchRevision: "20261116",
+          sending: false,
+        },
         { headers },
       );
     } catch {

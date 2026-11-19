@@ -117,10 +117,14 @@ async function render(
         `${es ? "Descarga solicitada" : "Requested download"}: ${await link("reward", job.fan_id || `owner-test:${job.id}`)}`,
       );
     }
-    if (job.kind === "capture" && job.payload.confirm === true)
+    if (job.kind === "capture" && job.payload.confirm === true) {
       links.push(
         `${es ? "Confirmar solicitud" : "Confirm request"}: ${await link("confirm", job.fan_id!)}`,
       );
+      links.push(
+        `${es ? "Cancelar suscripción" : "Unsubscribe"}: ${await link("unsubscribe", job.fan_id!, 365 * 86400)}`,
+      );
+    }
   }
   if (job.kind === "purchase" || job.kind === "recovery") {
     const purchases = await deps.store.purchases(job);
@@ -301,13 +305,25 @@ export async function deliverEmailJob(
     return "failed";
   }
 }
-export async function runMessaging(overrides: Partial<Dependencies> = {}) {
+export async function runMessaging(
+  overrides: Partial<Dependencies> = {},
+  jobId?: string,
+) {
   const deps = dependencies(overrides);
   if (deps.get("EMAIL_DELIVERY_ENABLED") !== "true")
     throw new EmailConfigurationError(["EMAIL_DELIVERY_ENABLED"]);
   const config = readEmailConfig(deps.get);
-  await deps.store.maintenance(config.marketingReady);
-  const jobs = await deps.store.claim(null, config.marketingReady);
+  if (jobId) {
+    const kind = await deps.store.kind(jobId);
+    if (
+      !kind ||
+      !["capture", "purchase", "recovery", "welcome", "reminder"].includes(kind)
+    )
+      throw new Error("invalid_request");
+  } else await deps.store.maintenance(config.marketingReady);
+  const jobs = await deps.store.claim(jobId || null, config.marketingReady);
+  if (jobId && (jobs.length > 1 || jobs.some((job) => job.id !== jobId)))
+    throw new Error("database_unavailable");
   const result = {
     sent: 0,
     failed: 0,
@@ -317,6 +333,7 @@ export async function runMessaging(overrides: Partial<Dependencies> = {}) {
   };
   for (const job of jobs) result[await deliverEmailJob(job, config, deps)]++;
   if (
+    !jobId &&
     !overrides.store &&
     jobs.length === 0 &&
     deps.get("META_CAPI_ACCESS_TOKEN")
@@ -329,8 +346,14 @@ export async function messagingRequest(
   body: Record<string, unknown>,
   overrides: Partial<Dependencies> = {},
 ) {
-  if (!body.operation || body.operation === "ordinary")
-    return runMessaging(overrides);
+  if (
+    !body.operation ||
+    body.operation === "ordinary" ||
+    body.operation === "dispatch_job"
+  ) {
+    if (!uuid(body.jobId)) throw new Error("invalid_request");
+    return runMessaging(overrides, body.jobId as string);
+  }
   if (
     !["controlled_test_preview", "controlled_test_send"].includes(
       String(body.operation),

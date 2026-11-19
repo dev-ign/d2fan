@@ -24,6 +24,7 @@ export interface Purchase {
   vault_item_slug: string | null;
 }
 export interface EmailStore {
+  kind(id: string): Promise<string | null>;
   claim(id: string | null, marketing: boolean): Promise<EmailJob[]>;
   begin(
     job: EmailJob,
@@ -48,6 +49,16 @@ export interface EmailStore {
 }
 export function emailStore(): EmailStore {
   return {
+    async kind(id) {
+      const { data, error } = await db()
+        .from("delivery_jobs")
+        .select("kind")
+        .eq("id", id)
+        .eq("artist_id", catalog.artistId)
+        .maybeSingle();
+      if (error) throw new Error("database_unavailable");
+      return data?.kind || null;
+    },
     claim: (id, marketing) =>
       rpc("claim_email_jobs", { p_job: id, p_marketing: marketing }),
     async begin(job, body, expires, marketing) {

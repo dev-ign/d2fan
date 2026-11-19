@@ -9,6 +9,7 @@ import { useScrolled } from "../hooks/useScrolled";
 import { NavigationMenu } from "./NavigationMenu";
 import { navigation } from "../config/navigation";
 import { useActiveSection } from "../hooks/useActiveSection";
+import { runtime } from "../config/runtime";
 
 function formatTime(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -84,13 +85,15 @@ export function Header({
             <LanguageMenu />
             {variant === "home" && (
               <>
-                <button
-                  className="button button--lime support-header"
-                  onClick={onSupport}
-                  type="button"
-                >
-                  {t.nav.support}
-                </button>
+                {runtime.commerceEnabled && (
+                  <button
+                    className="button button--lime support-header"
+                    onClick={onSupport}
+                    type="button"
+                  >
+                    {t.nav.support}
+                  </button>
+                )}
                 <div className="player-anchor" ref={playerRef}>
                   <button
                     className="wave-button"

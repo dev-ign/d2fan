@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Dialog } from "./Dialog";
 
 import { navigation } from "../config/navigation";
+import { runtime } from "../config/runtime";
 
 export function NavigationMenu({
   activeSection,
@@ -49,16 +50,18 @@ export function NavigationMenu({
             <ArrowUpRight size={22} aria-hidden="true" />
           </Link>
         ))}
-        <button
-          className="button button--lime"
-          type="button"
-          onClick={() => {
-            onClose();
-            onSupport();
-          }}
-        >
-          {t.nav.support}
-        </button>
+        {runtime.commerceEnabled && (
+          <button
+            className="button button--lime"
+            type="button"
+            onClick={() => {
+              onClose();
+              onSupport();
+            }}
+          >
+            {t.nav.support}
+          </button>
+        )}
       </nav>
       <p className="menu-note">{t.nav.note}</p>
     </Dialog>
