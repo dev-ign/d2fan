@@ -253,7 +253,7 @@ test("both languages fit all nine widths and simplified controls retain accessib
           .click();
         await expect(
           page.getByRole("dialog").getByRole("button", {
-            name: locale === "es" ? "APOYA EL CAMINO" : "SUPPORT THE JOURNEY",
+            name: locale === "es" ? "APOYA LA MÚSICA" : "SUPPORT THE MUSIC",
           }),
         ).toBeVisible();
         await page.keyboard.press("Escape");
@@ -347,7 +347,7 @@ test("both languages fit all nine widths and simplified controls retain accessib
         await page
           .getByRole("dialog")
           .getByRole("button", {
-            name: locale === "es" ? "APOYA EL CAMINO" : "SUPPORT THE JOURNEY",
+            name: locale === "es" ? "APOYA LA MÚSICA" : "SUPPORT THE MUSIC",
           })
           .click();
       }

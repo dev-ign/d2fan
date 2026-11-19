@@ -420,9 +420,57 @@ export async function runRefundConcurrencyTests() {
       await first.query("commit");
       console.log("PASS: unrelated fans do not block each other");
     }
+    {
+      const id = crypto.randomUUID();
+      const session = `cs_test_${id}`;
+      const intent = `pi_guest_${id}`;
+      await observer.query(`insert into checkout_attempts(id,artist_id,purpose,amount_minor,currency,stripe_session_id,payment_mode,stripe_account_id,guest_token_hash)
+        values('${id}','jona-ferreira','tip',500,'usd','${session}','test','acct_mock',repeat('a',64))`);
+      const fulfill = (event) =>
+        `select fulfill_checkout('${event}','checkout.session.completed','${id}','${session}','${intent}',500,'usd')`;
+      const receipt = `evt_guest_${id}`;
+      await overlap(
+        "guest duplicate fulfillment",
+        fulfill(receipt),
+        fulfill(receipt),
+        async () => {
+          assert.equal(
+            await observer.query(
+              `select count(*) from purchases where checkout_attempt_id='${id}' and fan_id is null`,
+            ),
+            "1",
+          );
+          assert.equal(
+            await observer.query(
+              `select count(*) from webhook_events where event_id='${receipt}'`,
+            ),
+            "1",
+          );
+        },
+      );
+      await overlap(
+        "guest refund / late fulfillment",
+        `select refund_purchase('evt_guest_refund_${id}','${intent}',true)`,
+        fulfill(`evt_guest_late_${id}`),
+        async () => {
+          assert.equal(
+            await observer.query(
+              `select status from purchases where checkout_attempt_id='${id}'`,
+            ),
+            "refunded",
+          );
+          assert.equal(
+            await observer.query(
+              `select count(*) from delivery_jobs where dedupe_key in (select 'purchase:' || id from purchases where checkout_attempt_id='${id}')`,
+            ),
+            "0",
+          );
+        },
+      );
+    }
     await testEmailConcurrency({ observer, first, second });
     console.log(
-      `PASS: 8 real multi-session refund scenarios (${version}); private disposable cluster, no hosted connection.`,
+      `PASS: 10 real multi-session payment scenarios (${version}); private disposable cluster, no hosted connection.`,
     );
   } finally {
     await Promise.allSettled(clients.map((client) => client.close()));

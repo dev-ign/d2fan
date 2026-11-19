@@ -37,7 +37,9 @@ export function SupportDialog({
   const captureId = useRef(crypto.randomUUID());
   const attemptId = useRef(crypto.randomUUID());
   const captureToken = useRef("");
+  const guestToken = useRef(crypto.randomUUID());
   const busy = useRef(false);
+  const closed = useRef(false);
   const [operatorToken] = useState(operatorTestToken);
   const [testAuthorized, setTestAuthorized] = useState(false);
   useEffect(() => {
@@ -67,12 +69,42 @@ export function SupportDialog({
     captureId.current = crypto.randomUUID();
     attemptId.current = crypto.randomUUID();
     captureToken.current = "";
+    guestToken.current = crypto.randomUUID();
     setCheckout(undefined);
     setMessage("");
   }
+  async function startSupport() {
+    if (busy.current || minor === null || !valid) return;
+    busy.current = true;
+    setLoading(true);
+    setMessage("");
+    try {
+      const result = await checkoutService.create({
+        requestId: attemptId.current,
+        purpose: "tip",
+        guestToken: guestToken.current,
+        amountMinor: minor,
+      });
+      if (closed.current) return;
+      if (!result.success) {
+        setMessage(result.error.message);
+        return;
+      }
+      analytics.track(
+        "InitiateCheckout",
+        { value: minor / 100, currency: "USD" },
+        result.data.eventId,
+      );
+      window.location.assign(result.data.url);
+    } finally {
+      busy.current = false;
+      setLoading(false);
+    }
+  }
+
   async function saveContact(event: React.FormEvent) {
     event.preventDefault();
-    if (busy.current) return;
+    if (busy.current || !item) return;
     let normalized: string;
     try {
       normalized = normalizeEmail(email);
@@ -116,9 +148,9 @@ export function SupportDialog({
       const result = await checkoutService.create({
         requestId: attemptId.current,
         captureToken: captureToken.current,
-        purpose: item ? "vault_unlock" : "tip",
+        purpose: "vault_unlock",
         amountMinor: minor ?? undefined,
-        itemSlug: item?.slug,
+        itemSlug: item.slug,
         analyticsConsent: !testAuthorized && analytics.allowed(),
         ...(testAuthorized ? { operatorTestToken: operatorToken } : {}),
       });
@@ -150,8 +182,11 @@ export function SupportDialog({
     !testAuthorized;
   return (
     <Dialog
-      title={t.supportUI.dialog}
-      onClose={onClose}
+      title={item ? t.supportUI.dialog : t.supportUI.tipDialog}
+      onClose={() => {
+        closed.current = true;
+        onClose();
+      }}
       className="support-dialog support-flow-dialog"
       footer={
         <>
@@ -160,10 +195,11 @@ export function SupportDialog({
               <button
                 className="button button--lime support-continue"
                 type="button"
-                disabled={!valid}
-                onClick={() => setStep(2)}
+                disabled={!valid || loading}
+                aria-busy={loading}
+                onClick={() => (item ? setStep(2) : void startSupport())}
               >
-                {t.next}
+                {item ? t.next : loading ? t.saving : t.pay}
               </button>
             ) : step === 2 ? (
               <div className="form-actions">
@@ -222,7 +258,7 @@ export function SupportDialog({
                 </>
               ) : (
                 <>
-                  <fieldset className="amount-fieldset">
+                  <fieldset className="amount-fieldset" disabled={loading}>
                     <legend className="eyebrow">{t.amount}</legend>
                     {catalog.support.presets.map((value) => (
                       <button
@@ -249,7 +285,8 @@ export function SupportDialog({
                         edited();
                       }}
                       aria-invalid={!valid}
-                      aria-describedby="amount-error"
+                      aria-describedby={valid ? undefined : "amount-error"}
+                      disabled={loading}
                     />
                   </label>
                   {!valid && (

@@ -141,7 +141,7 @@ test("release navigation traps and restores focus, hides player chrome and prese
   await expect(menu.getByRole("button", { name: "Close menu" })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(
-    menu.getByRole("button", { name: "SUPPORT THE JOURNEY" }),
+    menu.getByRole("button", { name: "SUPPORT THE MUSIC" }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(menu.getByRole("button", { name: "Close menu" })).toBeFocused();

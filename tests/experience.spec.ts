@@ -73,18 +73,18 @@ test("support and newsletter report unavailable integrations honestly", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "SUPPORT THE JOURNEY" }).click();
+  await page.getByRole("button", { name: "SUPPORT THE MUSIC" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Support the journey" }),
+    page.getByRole("dialog", { name: "Support the Music" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "$30" }).click();
   await expect(page.getByRole("button", { name: "$30" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await page.getByRole("button", { name: "CONTINUE" }).click();
-  await page.getByLabel("Your email", { exact: true }).fill("fan@example.com");
-  await page.getByRole("button", { name: "CONTINUE", exact: true }).click();
+  await page
+    .getByRole("button", { name: "CONTINUE TO STRIPE", exact: true })
+    .click();
   await expect(
     page.getByText("This connection is not ready yet. Please try again later."),
   ).toBeVisible();
@@ -124,10 +124,10 @@ test("small screens have reachable navigation and no horizontal overflow", async
   await page.getByRole("button", { name: "Open menu" }).click();
   await page
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "SUPPORT THE JOURNEY" })
+    .getByRole("button", { name: "SUPPORT THE MUSIC" })
     .click();
   await expect(
-    page.getByRole("dialog", { name: "Support the journey" }),
+    page.getByRole("dialog", { name: "Support the Music" }),
   ).toBeVisible();
 });
 
@@ -550,9 +550,12 @@ test("Shorty listening fits a small Spanish viewport", async ({ page }) => {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(320);
-  if (process.env.VITE_COMMERCE_ENABLED === "false") {
+  if (
+    (process.env.VITE_SUPPORT_ENABLED ?? process.env.VITE_COMMERCE_ENABLED) ===
+    "false"
+  ) {
     await expect(
-      page.getByRole("button", { name: "APOYA EL CAMINO" }),
+      page.getByRole("button", { name: "APOYA LA MÚSICA" }),
     ).toHaveCount(0);
   }
   await page.goto("/music/shorty");

@@ -14,7 +14,7 @@ export const english = {
     },
     main: "Main navigation",
     site: "Site navigation",
-    support: "SUPPORT THE JOURNEY",
+    support: "SUPPORT THE MUSIC",
     changeLanguage: "Change language",
     openMenu: "Open menu",
     closeMenu: "Close menu",
@@ -152,6 +152,7 @@ export const english = {
   },
   supportUI: {
     dialog: "Support the journey",
+    tipDialog: "Support the Music",
     first: "SUPPORT",
     second: "JONA.",
     vaultFirst: "THE",
@@ -198,6 +199,7 @@ export const english = {
     failed: "Payment could not be completed. You can try again.",
     canceled:
       "Checkout was canceled. No download is unlocked. You can resume payment below.",
+    tipCanceled: "You canceled checkout. You can try again when you’re ready.",
     waiting:
       "Waiting for verified payment confirmation. This may take a moment.",
     check: "CHECK PAYMENT AGAIN",
@@ -268,7 +270,7 @@ export const spanish: SiteMessages = {
     },
     main: "Navegación principal",
     site: "Navegación del sitio",
-    support: "APOYA EL CAMINO",
+    support: "APOYA LA MÚSICA",
     changeLanguage: "Cambiar idioma",
     openMenu: "Abrir menú",
     closeMenu: "Cerrar menú",
@@ -408,6 +410,7 @@ export const spanish: SiteMessages = {
   },
   supportUI: {
     dialog: "Apoya el camino",
+    tipDialog: "Apoya la música",
     first: "APOYA A",
     second: "JONA.",
     vaultFirst: "EL",
@@ -454,6 +457,8 @@ export const spanish: SiteMessages = {
     failed: "No se pudo completar el pago. Puedes intentarlo de nuevo.",
     canceled:
       "Cancelaste el pago. No se desbloqueó ninguna descarga. Puedes retomarlo aquí.",
+    tipCanceled:
+      "Cancelaste el pago. Puedes intentarlo de nuevo cuando quieras.",
     waiting:
       "Esperando la confirmación verificada del pago. Puede tardar un momento.",
     check: "VOLVER A VERIFICAR EL PAGO",

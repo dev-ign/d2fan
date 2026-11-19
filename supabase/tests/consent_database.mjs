@@ -11,6 +11,7 @@ const rpcCatalog = (observer) =>
   'public.capture_fan(text,uuid,text,text,text,jsonb,jsonb,boolean,text)'::regprocedure,
   'public.update_email_consent(text,uuid,text)'::regprocedure)`);
 
+// Compare across the additive payment migration. A populated new field still changes the snapshot.
 const legacySnapshot = (observer, fan) =>
   observer.query(`select json_build_object(
   'fan',(select to_jsonb(f) from fans f where id='${fan}'),
@@ -18,7 +19,10 @@ const legacySnapshot = (observer, fan) =>
   'consent',(select jsonb_agg(to_jsonb(c) order by id) from consent_records c where fan_id='${fan}'),
   'events',(select jsonb_agg(to_jsonb(e) order by id) from fan_events e where fan_id='${fan}'),
   'jobs',(select jsonb_agg(to_jsonb(j) order by id) from delivery_jobs j where fan_id='${fan}'),
-  'checkouts',(select jsonb_agg(to_jsonb(a) order by id) from checkout_attempts a where fan_id='${fan}'),
+  'checkouts',(select jsonb_agg((to_jsonb(a) - array(
+    select key from jsonb_each(to_jsonb(a))
+    where key in ('payment_mode','stripe_account_id','guest_token_hash') and value='null'::jsonb
+  )) order by id) from checkout_attempts a where fan_id='${fan}'),
   'purchases',(select jsonb_agg(to_jsonb(p) order by id) from purchases p where fan_id='${fan}'),
   'entitlements',(select jsonb_agg(to_jsonb(u) order by id) from vault_unlocks u where fan_id='${fan}'),
   'webhooks',(select jsonb_agg(to_jsonb(w) order by event_id) from webhook_events w

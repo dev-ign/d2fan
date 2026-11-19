@@ -105,7 +105,6 @@ export function TransactionExperience({
     mounted.current = true;
     if (context) {
       history.replaceState(null, "", location.pathname);
-      if (context.mode === "status") analytics.remember(context.token);
     }
     return () => {
       mounted.current = false;
@@ -121,6 +120,8 @@ export function TransactionExperience({
       if (!live) return;
       if (result.success) {
         setStatus(result.data);
+        if (result.data.purpose === "vault_unlock" && analytics.allowed())
+          analytics.remember(context!.token);
         setMessage(null);
         if (result.data.status === "completed" && result.data.eventId)
           analytics.track(
@@ -267,20 +268,19 @@ export function TransactionExperience({
               <p role="status">
                 {!status
                   ? t.transaction.verifying
-                  : !runtime.commerceEnabled &&
-                      !["completed", "refunded"].includes(status.status)
-                    ? t.unavailable
-                    : status.status === "completed"
-                      ? t.transaction.confirmed
-                      : status.status === "refunded"
-                        ? t.transaction.refunded
-                        : status.status === "expired"
-                          ? t.transaction.expired
-                          : status.status === "failed"
-                            ? t.transaction.failed
-                            : cancelled
-                              ? t.transaction.canceled
-                              : t.transaction.waiting}
+                  : status.status === "completed"
+                    ? t.transaction.confirmed
+                    : status.status === "refunded"
+                      ? t.transaction.refunded
+                      : status.status === "expired"
+                        ? t.transaction.expired
+                        : status.status === "failed"
+                          ? t.transaction.failed
+                          : status.status === "cancelled" || cancelled
+                            ? status.purpose === "tip"
+                              ? t.transaction.tipCanceled
+                              : t.transaction.canceled
+                            : t.transaction.waiting}
               </p>
               {purchasedItem && <p>{vaultCopy(purchasedItem, t).title}</p>}
               {(!status ||
@@ -293,11 +293,12 @@ export function TransactionExperience({
                   {t.transaction.check}
                 </button>
               )}
-              {status?.status === "completed" && <p>{deliveryMessage}</p>}
+              {status?.status === "completed" &&
+                status.purpose === "vault_unlock" && <p>{deliveryMessage}</p>}
             </>
           )}
           {context.mode === "status" &&
-            runtime.commerceEnabled &&
+            runtime.supportEnabled &&
             status &&
             ["expired", "failed"].includes(status.status) &&
             status.purpose === "tip" && (
@@ -317,11 +318,14 @@ export function TransactionExperience({
                 {t.transaction.restart}
               </button>
             )}
-          {runtime.commerceEnabled && status?.checkoutUrl && (
-            <a className="button button--lime" href={status.checkoutUrl}>
-              {t.transaction.resume}
-            </a>
-          )}
+          {status?.checkoutUrl &&
+            (status.purpose === "tip"
+              ? runtime.supportEnabled
+              : runtime.commerceEnabled) && (
+              <a className="button button--lime" href={status.checkoutUrl}>
+                {t.transaction.resume}
+              </a>
+            )}
           {(context.mode === "access" ||
             context.mode === "reward" ||
             status?.accessToken) && (

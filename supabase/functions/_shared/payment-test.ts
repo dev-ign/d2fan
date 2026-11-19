@@ -1,4 +1,5 @@
 import { verifyToken } from "./security.ts";
+import { paymentConfiguration } from "./payments.ts";
 import { catalog, env, site } from "./platform.ts";
 
 export const testItemSlug = "accion-wallpaper";
@@ -8,7 +9,7 @@ export async function authorizePaymentTest(req: Request, value: unknown) {
     Deno.env.get("ACCION_TEST_CHECKOUT") !== "true" ||
     site() !== "http://localhost:5173" ||
     req.headers.get("origin") !== site() ||
-    !/^(sk|rk)_test_/.test(env("STRIPE_SECRET_KEY"))
+    paymentConfiguration().mode !== "test"
   )
     throw new Error("unauthorized");
   const claims = await verifyToken(

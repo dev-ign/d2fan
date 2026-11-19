@@ -5,7 +5,8 @@ import {
   redeemVault,
 } from "../functions/_shared/handlers.ts";
 import { signToken } from "../functions/_shared/security.ts";
-import { stripe, token } from "../functions/_shared/platform.ts";
+import { token } from "../functions/_shared/platform.ts";
+import { stripe } from "../functions/_shared/payments.ts";
 import { stripeWebhook } from "../functions/stripe-webhook/index.ts";
 const secret = "local-unit-tests-only-secret-with-at-least-32-characters";
 const req = new Request("http://127.0.0.1:54324/functions/v1/create-checkout", {
@@ -17,6 +18,10 @@ function setup() {
     ACCION_TEST_TOKEN_SECRET: secret,
     ACCESS_TOKEN_SECRET: secret,
     STRIPE_SECRET_KEY: "sk_test_mock",
+    STRIPE_PAYMENT_MODE: "test",
+    STRIPE_ACCOUNT_ID: "acct_mock",
+    SUPPORT_ENABLED: "true",
+    COMMERCE_ENABLED: "false",
     STRIPE_WEBHOOK_SECRET: "whsec_mock",
     PUBLIC_SITE_URL: "http://localhost:5173",
     SUPABASE_URL: "http://localhost:54321",
@@ -82,11 +87,10 @@ async function webhookRequest(event: Record<string, unknown>) {
 }
 
 Deno.test(
-  "normal checkout rejects live, missing and ambiguous keys before any network or attempt write",
+  "test checkout rejects wrong-mode, missing and ambiguous keys before any network or attempt write",
   async () => {
     setup();
-    const captureToken = await token("capture", "fan", 300),
-      original = fetch;
+    const original = fetch;
     let requests = 0;
     globalThis.fetch = () => {
       requests++;
@@ -107,16 +111,15 @@ Deno.test(
         let code = "";
         try {
           await createCheckout(req, {
-            captureToken,
+            guestToken: crypto.randomUUID(),
             requestId: crypto.randomUUID(),
             purpose: "tip",
             amountMinor: 500,
-            analyticsConsent: false,
           });
         } catch (error) {
           code = error instanceof Error ? error.message : "";
         }
-        assert(code === "stripe_test_mode_required");
+        assert(code === "payment_configuration");
         assert(
           (
             await stripeWebhook(
@@ -126,9 +129,14 @@ Deno.test(
         );
       }
       assert(requests === 0);
-      for (const key of ["sk_test_mock", "rk_test_mock"]) {
+      for (const key of ["sk_test_mock", "rk_test_mock", "rkcs_test_mock"]) {
         Deno.env.set("STRIPE_SECRET_KEY", key);
         assert(stripe());
+      }
+      Deno.env.set("STRIPE_PAYMENT_MODE", "live");
+      for (const key of ["rkcs_test_mock", "rkcs_live_mock"]) {
+        Deno.env.set("STRIPE_SECRET_KEY", key);
+        await denied(() => Promise.resolve(stripe()));
       }
     } finally {
       globalThis.fetch = original;
@@ -223,11 +231,18 @@ Deno.test(
             amount_minor: 500,
             currency: "usd",
             status: "draft",
+            payment_mode: "test",
+            stripe_account_id: "acct_mock",
+            guest_token_hash: null,
+            stripe_session_id: null,
+            checkout_url: null,
             created_at: new Date().toISOString(),
             expires_at: new Date(Date.now() + 3600000).toISOString(),
           }),
         );
-      if (url.includes("api.stripe.com")) {
+      if (url.endsWith("/v1/account"))
+        return Promise.resolve(json({ id: "acct_mock" }));
+      if (url.includes("/checkout/sessions")) {
         charged++;
         assert(
           new Headers(init?.headers).get("Idempotency-Key") ===
@@ -254,9 +269,15 @@ Deno.test(
             id: "cs_test_mock",
             url: "https://checkout.stripe.com/test",
             livemode: false,
+            mode: "payment",
+            client_reference_id: attempt,
+            amount_total: 500,
+            currency: "usd",
           }),
         );
       }
+      if (url.includes("/checkout_attempts") && init?.method === "PATCH")
+        return Promise.resolve(json({ id: attempt }));
       return Promise.resolve(json(null));
     };
     try {
@@ -339,78 +360,145 @@ Deno.test(
   },
 );
 
+function guestPaymentFixture(live = false) {
+  const id = crypto.randomUUID();
+  const sessionId = `cs_${live ? "live" : "test"}_mock`;
+  const metadata = {
+    artist_id: "jona-ferreira",
+    attempt_id: id,
+    purpose: "tip",
+  };
+  const intent = {
+    id: "pi_guest",
+    livemode: live,
+    amount: 500,
+    amount_received: 500,
+    currency: "usd",
+    status: "succeeded",
+    metadata,
+  };
+  return {
+    attempt: {
+      id,
+      stripe_session_id: sessionId,
+      amount_minor: 500,
+      currency: "usd",
+      fan_id: null,
+      item_slug: null,
+      purpose: "tip",
+      payment_mode: live ? "live" : "test",
+      stripe_account_id: "acct_mock",
+    },
+    session: {
+      id: sessionId,
+      client_reference_id: id,
+      amount_total: 500,
+      currency: "usd",
+      livemode: live,
+      mode: "payment",
+      status: "complete",
+      payment_status: "paid",
+      payment_intent: intent,
+      metadata,
+    },
+    intent,
+  };
+}
+
 Deno.test(
-  "signed Stripe event fulfills only canonical paid session; unpaid and failed sessions do not fulfill",
+  "verified guest webhook uses canonical payment, amount, intent and attempt mode",
   async () => {
     setup();
     const original = fetch;
-    let payment = "unpaid",
-      mode: boolean | undefined = false,
-      fulfills = 0;
+    const { attempt, session } = guestPaymentFixture(true);
+    Deno.env.set("STRIPE_PAYMENT_MODE", "live");
+    Deno.env.set("STRIPE_SECRET_KEY", "sk_live_fixture");
+    Deno.env.set("SUPPORT_ENABLED", "false"); // Previously issued sessions are still processed.
+    const fulfilled = new Set<string>();
+    let writes = 0;
     globalThis.fetch = (input, init) => {
-      const url = String(input);
-      if (url.includes("api.stripe.com"))
-        return Promise.resolve(
-          json({
-            id: "cs_test_mock",
-            livemode: mode,
-            payment_status: payment,
-            payment_intent: "pi_test",
-            amount_total: 500,
-            currency: "usd",
-            metadata: { artist_id: "jona-ferreira", attempt_id: "attempt" },
-          }),
+      const url = new URL(String(input));
+      if (url.pathname === "/v1/account")
+        return Promise.resolve(json({ id: "acct_mock" }));
+      if (url.pathname.includes("/v1/checkout/sessions/"))
+        return Promise.resolve(json(session));
+      if (url.pathname === "/rest/v1/checkout_attempts") {
+        if (init?.method === "PATCH") {
+          writes++;
+          assert(JSON.parse(String(init?.body)).status === "failed");
+          return Promise.resolve(json(null));
+        }
+        return Promise.resolve(json(attempt));
+      }
+      if (url.pathname === "/rest/v1/rpc/fulfill_checkout") {
+        const row = JSON.parse(String(init?.body));
+        assert(
+          row.p_amount === 500 &&
+            row.p_session === session.id &&
+            row.p_intent === "pi_guest" &&
+            row.p_attempt === attempt.id,
         );
-      if (url.includes("/rpc/fulfill_checkout")) {
-        fulfills++;
-        const body = JSON.parse(String(init?.body));
-        assert(body.p_amount === 500 && body.p_session === "cs_test_mock");
+        fulfilled.add(row.p_event);
         return Promise.resolve(json("purchase"));
       }
-      return Promise.resolve(json(null));
+      throw new Error(`unexpected test route ${url.pathname}`);
     };
-    try {
-      for (const type of [
-        "checkout.session.completed",
-        "checkout.session.async_payment_failed",
-        "checkout.session.async_payment_succeeded",
-      ]) {
-        if (type.endsWith("succeeded")) payment = "paid";
-        const event = {
+    const send = async (type: string) =>
+      stripeWebhook(
+        await webhookRequest({
           id: `evt_${type}`,
           type,
-          livemode: false,
+          livemode: true,
           data: {
             object: {
-              id: "cs_test_mock",
+              id: session.id,
               payment_status: "paid",
-              metadata: { artist_id: "jona-ferreira" },
+              metadata: session.metadata,
             },
           },
-        };
+        }),
+      );
+    try {
+      session.payment_status = "unpaid";
+      assert(
+        (await send("checkout.session.completed")).status === 200 &&
+          fulfilled.size === 0,
+      );
+      assert(
+        (await send("checkout.session.async_payment_failed")).status === 200 &&
+          writes === 1 &&
+          fulfilled.size === 0,
+      );
+      session.payment_status = "paid";
+      for (const change of [
+        { target: session, key: "livemode", value: false },
+        { target: session, key: "amount_total", value: 999 },
+        { target: session, key: "currency", value: "eur" },
+        { target: session.metadata, key: "purpose", value: "vault_unlock" },
+        { target: session.payment_intent, key: "amount_received", value: 499 },
+        { target: attempt, key: "payment_mode", value: "test" },
+        { target: attempt, key: "stripe_account_id", value: "acct_wrong" },
+        { target: attempt, key: "stripe_session_id", value: "cs_live_other" },
+      ]) {
+        const target = change.target as Record<string, unknown>;
+        const original = target[change.key];
+        target[change.key] = change.value;
         assert(
-          (await stripeWebhook(await webhookRequest(event))).status === 200,
+          (await send("checkout.session.async_payment_succeeded")).status ===
+            503 && fulfilled.size === 0,
         );
-        assert(fulfills === (payment === "paid" ? 1 : 0));
+        target[change.key] = original;
       }
-      for (mode of [true, undefined]) {
-        const response = await stripeWebhook(
-          await webhookRequest({
-            id: "evt_wrong_canonical_mode",
-            type: "checkout.session.completed",
-            livemode: false,
-            data: {
-              object: {
-                id: "cs_test_mock",
-                metadata: { artist_id: "jona-ferreira" },
-              },
-            },
-          }),
-        );
-        assert(response.status === 503 && fulfills === 1);
-      }
+      assert(
+        (await send("checkout.session.async_payment_succeeded")).status === 200,
+      );
+      assert(
+        (await send("checkout.session.async_payment_succeeded")).status === 200,
+      );
+      assert(Number(fulfilled.size) === 1);
     } finally {
       globalThis.fetch = original;
+      setup();
     }
   },
 );
@@ -450,60 +538,64 @@ Deno.test(
 );
 
 Deno.test(
-  "refund handling requires test-mode charge and PaymentIntent before its RPC",
+  "guest refund verifies canonical charge, intent and Session before its RPC",
   async () => {
     setup();
     const original = fetch;
-    let chargeMode: boolean | undefined = true,
-      paymentMode: boolean | undefined = false,
-      refunds = 0;
-    globalThis.fetch = (input) => {
-      const url = String(input);
-      if (url.includes("/v1/charges/"))
+    const { attempt, session, intent } = guestPaymentFixture();
+    let chargeMode: boolean | undefined = true;
+    let refunds = 0;
+    let wrongIntent = false;
+    globalThis.fetch = (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/v1/account")
+        return Promise.resolve(json({ id: "acct_mock" }));
+      if (url.pathname.startsWith("/v1/charges/"))
         return Promise.resolve(
           json({
             livemode: chargeMode,
-            payment_intent: "pi_test",
+            payment_intent: wrongIntent
+              ? { ...intent, id: "pi_other" }
+              : intent,
+            amount: 500,
+            amount_refunded: 500,
+            currency: "usd",
             refunded: true,
           }),
         );
-      if (url.includes("/v1/payment_intents/"))
-        return Promise.resolve(
-          json({
-            livemode: paymentMode,
-            metadata: { artist_id: "jona-ferreira" },
-          }),
-        );
-      if (url.includes("/rpc/refund_purchase")) {
+      if (url.pathname.startsWith("/v1/checkout/sessions/"))
+        return Promise.resolve(json(session));
+      if (url.pathname === "/rest/v1/checkout_attempts")
+        return Promise.resolve(json(attempt));
+      if (url.pathname === "/rest/v1/rpc/refund_purchase") {
+        const body = JSON.parse(String(init?.body));
+        assert(body.p_intent === "pi_guest" && body.p_full === true);
         refunds++;
         return Promise.resolve(json(null));
       }
-      throw new Error("unexpected mocked request");
+      throw new Error(`unexpected test route ${url.pathname}`);
     };
+    const send = async () =>
+      stripeWebhook(
+        await webhookRequest({
+          id: "evt_guest_refund",
+          type: "charge.refunded",
+          livemode: false,
+          data: { object: { id: "ch_guest" } },
+        }),
+      );
     try {
-      for (const [charge, payment] of [
-        [true, false],
-        [undefined, false],
-        [false, true],
-        [false, undefined],
-        [false, false],
-      ]) {
-        chargeMode = charge;
-        paymentMode = payment;
-        const response = await stripeWebhook(
-          await webhookRequest({
-            id: "evt_refund_mode",
-            type: "charge.refunded",
-            livemode: false,
-            data: { object: { id: "ch_test" } },
-          }),
-        );
-        assert(
-          response.status ===
-            (charge === false && payment === false ? 200 : 503),
-        );
-      }
-      assert(refunds === 1);
+      assert((await send()).status === 503);
+      chargeMode = undefined;
+      assert((await send()).status === 503);
+      chargeMode = false;
+      intent.livemode = true;
+      assert((await send()).status === 503);
+      intent.livemode = false;
+      wrongIntent = true;
+      assert((await send()).status === 503 && refunds === 0);
+      wrongIntent = false;
+      assert((await send()).status === 200 && Number(refunds) === 1);
     } finally {
       globalThis.fetch = original;
     }

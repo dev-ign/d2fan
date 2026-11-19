@@ -1,6 +1,7 @@
 import catalog from "../../supabase/shared/catalog.json" with { type: "json" };
 export { catalog };
 export const runtime = {
+  supportEnabled: import.meta.env.VITE_SUPPORT_ENABLED === "true",
   commerceEnabled: import.meta.env.VITE_COMMERCE_ENABLED === "true",
   paymentTestApi:
     import.meta.env.DEV &&

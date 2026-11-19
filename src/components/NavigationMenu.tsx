@@ -50,7 +50,7 @@ export function NavigationMenu({
             <ArrowUpRight size={22} aria-hidden="true" />
           </Link>
         ))}
-        {runtime.commerceEnabled && (
+        {runtime.supportEnabled && (
           <button
             className="button button--lime"
             type="button"

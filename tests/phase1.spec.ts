@@ -13,80 +13,72 @@ const checkout = {
   url: "https://checkout.stripe.com/c/pay/test",
   eventId: "checkout:test",
 };
-test("contact precedes payment, first-touch retained, retry does not recapture, back keeps input", async ({
+test("guest Support retries the same checkout and redirects without fan capture", async ({
   page,
 }) => {
   const calls: { name: string; body: Record<string, unknown> }[] = [];
-  let attempts = 0;
+  const deferFirst = Promise.withResolvers<void>();
   await page.route("**/functions/v1/**", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
     const name = new URL(route.request().url()).pathname.split("/").pop()!;
-    const body = route.request().postDataJSON();
-    calls.push({ name, body });
-    if (name === "create-checkout" && attempts++ === 0)
-      return route.fulfill({
-        status: 503,
-        json: {
-          success: false,
-          error: {
-            code: "network",
-            message: "Please try again.",
-            retryable: true,
-          },
-        },
-      });
-    return route.fulfill({
-      json: {
-        success: true,
-        data: name === "capture-fan" ? capture : checkout,
-      },
-    });
+    calls.push({ name, body: route.request().postDataJSON() });
+    if (calls.length === 1) {
+      await deferFirst.promise;
+      return route.abort();
+    }
+    return route.fulfill({ json: { success: true, data: checkout } });
   });
-  await page.goto(
-    "/?utm_source=instagram&utm_medium=reel&utm_campaign=accion&utm_content=creative_a",
+  await page.route(checkout.url, (route) =>
+    route.fulfill({ body: "Synthetic Stripe Checkout" }),
   );
-  const trigger = page.getByRole("button", { name: "SUPPORT THE JOURNEY" });
+  await page.goto("/");
+  if (process.env.VITE_COMMERCE_ENABLED === "false")
+    await expect(page.locator(".vault-card").first()).toBeDisabled();
+  const trigger = page.getByRole("button", { name: "SUPPORT THE MUSIC" });
   await trigger.click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", { name: "Support the Music" });
+  const amount = dialog.getByLabel("Custom amount (USD)");
+  const pay = dialog.getByRole("button", { name: "CONTINUE TO STRIPE" });
+  for (const preset of ["$5", "$15", "$30"])
+    await expect(
+      dialog.getByRole("button", { name: preset, exact: true }),
+    ).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "$15", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await dialog.getByLabel("Custom amount (USD)").fill("4.99");
-  await expect(dialog.getByRole("button", { name: "CONTINUE" })).toBeDisabled();
-  await dialog.getByLabel("Custom amount (USD)").fill("15.25");
-  await dialog.getByRole("button", { name: "CONTINUE" }).click();
-  await expect(dialog.getByRole("checkbox")).not.toBeChecked();
-  await dialog
-    .getByLabel("Your email", { exact: true })
-    .fill("fan@example.com");
-  await dialog.getByRole("button", { name: "BACK", exact: true }).click();
-  await expect(dialog.getByLabel("Custom amount (USD)")).toHaveValue("15.25");
-  await dialog.getByRole("button", { name: "CONTINUE" }).click();
-  await expect(dialog.getByLabel("Your email", { exact: true })).toHaveValue(
-    "fan@example.com",
-  );
-  await dialog.getByRole("button", { name: "CONTINUE" }).click();
-  await expect(dialog.getByText("Please try again.")).toBeVisible();
-  await dialog.getByRole("button", { name: "CONTINUE" }).click();
-  await expect(
-    dialog.getByRole("link", { name: "CONTINUE TO STRIPE" }),
-  ).toHaveAttribute("href", checkout.url);
-  expect(calls.filter((c) => c.name === "capture-fan")).toHaveLength(1);
-  expect(calls.map((c) => c.name)).toEqual([
-    "capture-fan",
+  await expect(dialog.getByRole("textbox", { name: /email/i })).toHaveCount(0);
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await amount.fill("4.99");
+  await expect(pay).toBeDisabled();
+  await expect(amount).toHaveAccessibleDescription(/choose|enter/i);
+  await amount.fill("15.25");
+  await pay.click();
+  try {
+    await expect(
+      dialog.getByRole("button", { name: "SAVING…" }),
+    ).toBeDisabled();
+    await expect(amount).toBeDisabled();
+  } finally {
+    deferFirst.resolve();
+  }
+  await expect(dialog.getByText(/could not connect/i)).toBeVisible();
+  await expect(amount).toHaveValue("15.25");
+  await pay.click();
+  await expect(page).toHaveURL(checkout.url);
+  expect(calls.map(({ name }) => name)).toEqual([
     "create-checkout",
     "create-checkout",
   ]);
-  expect(calls[0].body).toMatchObject({
-    emailMarketing: false,
-    firstTouch: { utm_source: "instagram", utm_content: "creative_a" },
+  expect(calls[0].body).toEqual({
+    requestId: expect.any(String),
+    guestToken: expect.any(String),
+    purpose: "tip",
+    amountMinor: 1525,
   });
-  expect(calls[1].body.amountMinor).toBe(1525);
-  expect(calls[1].body.requestId).toBe(calls[2].body.requestId);
-  await mkdir("artifacts/qa-phase1", { recursive: true });
-  await page.screenshot({ path: "artifacts/qa-phase1/support-payment.png" });
-  await page.keyboard.press("Escape");
-  await expect(trigger).toBeFocused();
+  expect(calls[0].body.requestId).not.toBe(calls[0].body.guestToken);
+  expect(calls[0].body).toEqual(calls[1].body);
 });
+
 test("capture loading and accepted mocked response, language, opt in and disabled WhatsApp", async ({
   page,
 }) => {
@@ -393,18 +385,30 @@ test("responsive header bounds, modal keyboard trap and no horizontal overflow",
   }
   await page.setViewportSize({ width: 320, height: 740 });
   await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("button", { name: "SUPPORT THE JOURNEY" }).click();
+  await page.getByRole("button", { name: "SUPPORT THE MUSIC" }).click();
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("button", { name: "Close dialog" }),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
-  await expect(dialog.getByRole("button", { name: "CONTINUE" })).toBeFocused();
+  await expect(
+    dialog.getByRole("button", { name: "CONTINUE TO STRIPE" }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
     dialog.getByRole("button", { name: "Close dialog" }),
   ).toBeFocused();
   await page.screenshot({ path: "artifacts/qa-phase1/support-320.png" });
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Change language" }).click();
+  await page.getByRole("menuitemradio", { name: /ES/ }).click();
+  await page.getByRole("button", { name: "Abrir menú" }).click();
+  await page.getByRole("button", { name: "APOYA LA MÚSICA" }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Apoya la música" })
+      .getByRole("button", { name: "CONTINUAR A STRIPE" }),
+  ).toBeVisible();
 });
 
 test("expired support resumes with the saved amount as a new attempt", async ({
@@ -428,7 +432,42 @@ test("expired support resumes with the saved amount as a new attempt", async ({
   await page.getByRole("button", { name: "START A NEW CHECKOUT" }).click();
   await expect(
     page
-      .getByRole("dialog", { name: "Support the journey" })
+      .getByRole("dialog", { name: "Support the Music" })
       .getByRole("button", { name: "$30", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+});
+
+test("guest Support distinguishes cancellation, pending confirmation and verified payment", async ({
+  page,
+}) => {
+  let paid = false;
+  await page.route("**/functions/v1/checkout-status", (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          purpose: "tip",
+          amountMinor: 500,
+          currency: "usd",
+          delivery: "disabled",
+          status: paid ? "completed" : "pending_payment",
+        },
+      },
+    }),
+  );
+  await page.goto("/?checkout=cancel#status=scoped-test-status");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("You canceled checkout.");
+  await expect(dialog).not.toContainText(/download|payment confirmed/i);
+  await dialog.getByRole("button", { name: "Close dialog" }).click();
+  await page.goto("/?checkout=return#status=scoped-test-status");
+  await expect(dialog).toContainText(
+    "Waiting for verified payment confirmation.",
+  );
+  paid = true;
+  await dialog.getByRole("button", { name: "CHECK PAYMENT AGAIN" }).click();
+  await expect(dialog).toContainText(
+    "Payment confirmed. Thank you for supporting Jona.",
+  );
+  await expect(dialog).not.toContainText(/download|email delivery|receipt/i);
 });
