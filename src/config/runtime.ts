@@ -1,4 +1,4 @@
-import catalog from "../../supabase/shared/catalog.json";
+import catalog from "../../supabase/shared/catalog.json" with { type: "json" };
 export { catalog };
 export const runtime = {
   commerceEnabled: import.meta.env.VITE_COMMERCE_ENABLED === "true",

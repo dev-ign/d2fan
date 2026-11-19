@@ -2,6 +2,7 @@ import { test, expect, type Page } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 const output = "artifacts/qa-release-themes";
 const covers = {
+  shorty: "/assets/cover-shorty.webp",
   accion: "/assets/raw-music-1.webp",
   "darte-nota": "/assets/raw-music-4.webp",
   cafe: "/assets/raw-vault-1.webp",
@@ -23,8 +24,9 @@ test("themes follow arrows, cover selection and keyboard tabs without altering s
 }) => {
   await page.goto("/#music");
   await page.evaluate(() => document.fonts.ready);
-  const initial = await stable(page, covers.accion);
+  const initial = await stable(page, covers.shorty);
   await expect(initial).toHaveAttribute("aria-hidden", "true");
+  await page.getByRole("button", { name: "Acción", exact: true }).click();
   await page.getByRole("button", { name: "Play Acción preview" }).click();
   await page.getByRole("button", { name: "Open audio player" }).click();
   await expect(page.locator(".player-track strong")).toHaveText("Acción");
@@ -53,7 +55,7 @@ test("normal motion crossfades decoded layers without a blank frame or layout ch
   page,
 }) => {
   await page.goto("/#music");
-  await stable(page, covers.accion);
+  await stable(page, covers.shorty);
   const sectionHeight = await page
     .locator("#music")
     .evaluate((node) => node.getBoundingClientRect().height);
@@ -96,7 +98,7 @@ test("rapid selection cancels stale loads and interrupted fades with a bounded l
     await route.continue();
   });
   await page.goto("/#music");
-  await stable(page, covers.accion);
+  await stable(page, covers.shorty);
   await page.getByRole("button", { name: "Darte Nota", exact: true }).click();
   await expect(page.locator('#music [data-layer="incoming"]')).toHaveCount(1);
   await page.getByRole("button", { name: "Café", exact: true }).click();
@@ -139,11 +141,11 @@ test("failed background loads keep a decoded theme and initial failures keep a d
 }) => {
   await page.route("**/assets/raw-vault-1.webp", (route) => route.abort());
   await page.goto("/#music");
-  await stable(page, covers.accion);
+  await stable(page, covers.shorty);
   await page.getByRole("button", { name: "Café", exact: true }).click();
   await expect(page.locator(".release-head h3")).toHaveText("Café");
   await page.waitForTimeout(200);
-  await stable(page, covers.accion);
+  await stable(page, covers.shorty);
   await expect(page.locator("#music .release-theme img")).toHaveCount(1);
   await page.goto("/music/cafe");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Café");

@@ -20,7 +20,6 @@ const action: MusicRelease = {
   releaseDate: "2026-09-25",
   coverArt: "/art.jpg",
   previewUrl: "/accion.m4a",
-  featured: true,
   streamingLinks: {},
 };
 const another: MusicRelease = {
@@ -29,7 +28,6 @@ const another: MusicRelease = {
   slug: "darte",
   title: "Darte Nota",
   previewUrl: "/darte.m4a",
-  featured: false,
 };
 
 class FakeAudio extends EventTarget {

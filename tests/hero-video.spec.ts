@@ -214,7 +214,7 @@ test("reduced motion is poster only and media failure retains the hero content",
     page.getByRole("button", { name: "Read artist biography" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Latest release: Acción" }),
+    page.getByRole("link", { name: "Latest release: Shorty" }),
   ).toBeVisible();
   await page.screenshot({ path: `${output}/failed-video-mobile.png` });
 });
@@ -313,7 +313,7 @@ test("fresh and refreshed home start at the hero; history and explicit anchors a
   const saved = await page.evaluate(
     () => (window as Window & { heroDeparture: number }).heroDeparture,
   );
-  await expect(page).toHaveURL(/\/music\/accion$/);
+  await expect(page).toHaveURL(/\/music\/shorty$/);
   await expect(page.locator("html")).toHaveAttribute(
     "data-scroll-ready",
     "true",
@@ -327,7 +327,7 @@ test("fresh and refreshed home start at the hero; history and explicit anchors a
   );
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(saved, 0);
   await page.goForward();
-  await expect(page).toHaveURL(/\/music\/accion$/);
+  await expect(page).toHaveURL(/\/music\/shorty$/);
   await page.locator(".wordmark").click();
   await expect(page).toHaveURL("/");
   await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);

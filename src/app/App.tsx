@@ -1,6 +1,6 @@
 import { LocaleProvider } from "./LocaleProvider";
 import { useLocale } from "../hooks/useLocale";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   BrowserRouter,
   Link,
@@ -12,6 +12,7 @@ import {
 import { catalog, runtime } from "../config/runtime";
 import { TransactionExperience } from "../features/checkout/TransactionExperience";
 import { PrivacyControls } from "../features/fan-capture/PrivacyControls";
+import { PrivacyPage } from "../features/fan-capture/PrivacyPage";
 import { attribution } from "../services/attribution";
 import { analytics } from "../services/analytics";
 import { AudioProvider } from "./AudioProvider";
@@ -26,6 +27,8 @@ import { localContentRepository } from "../repositories/localContentRepository";
 import { useSectionMotion } from "../hooks/useSectionMotion";
 import { useRouteScroll } from "../hooks/useRouteScroll";
 import type { Artist, MusicRelease, VaultItem } from "../domain/types";
+import { releases } from "../data/content";
+import { getReleaseMetadata } from "../data/releaseMetadata";
 
 function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
   const [content, setContent] = useState<{
@@ -63,7 +66,10 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
               ) ?? content.releases[0]
             }
           />
-          <MusicSection releases={content.releases} />
+          <MusicSection
+            releases={content.releases}
+            featuredReleaseId={content.artist.featuredReleaseId}
+          />
           <VaultSection items={content.vault} onSupport={onSupport} />
           <StayClose />
         </>
@@ -79,8 +85,32 @@ function AppShell() {
   const [resumeAmount, setResumeAmount] = useState<number>();
   const location = useLocation();
   const releaseRoute = useMatch("/music/:slug");
+  const privacyRoute = Boolean(useMatch("/privacy"));
   useRouteScroll();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const release = releases.find(
+    (item) => item.slug === releaseRoute?.params.slug,
+  );
+  useLayoutEffect(() => {
+    const metadata = release && getReleaseMetadata(release, locale);
+    const { title, description } =
+      metadata ?? (privacyRoute ? t.privacy : t.meta);
+    document.title = title;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", description);
+    document.head
+      .querySelectorAll("[data-release-meta]")
+      .forEach((node) => node.remove());
+    for (const { tag, attrs } of metadata?.tags ?? []) {
+      const node = document.createElement(tag);
+      node.setAttribute("data-release-meta", "");
+      for (const [name, value] of Object.entries(attrs)) {
+        node.setAttribute(name, value);
+      }
+      document.head.append(node);
+    }
+  }, [release, locale, privacyRoute, t.meta, t.privacy]);
   useEffect(() => {
     attribution();
     if (window.location.search)
@@ -95,7 +125,7 @@ function AppShell() {
     <>
       <Header
         key={location.pathname}
-        variant={releaseRoute ? "release" : "home"}
+        variant={releaseRoute || privacyRoute ? "release" : "home"}
         onSupport={() => {
           setResumeAmount(undefined);
           setSupportItem("tip");
@@ -109,6 +139,7 @@ function AppShell() {
           }
         />
         <Route path="/music/:slug" element={<ReleasePage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route
           path="*"
           element={
@@ -131,6 +162,9 @@ function AppShell() {
           }}
         />
         <PrivacyControls />
+        <Link className="footer-privacy-link" to="/privacy">
+          {t.privacy.title}
+        </Link>
       </footer>
       {runtime.commerceEnabled && supportItem !== null && (
         <SupportDialog

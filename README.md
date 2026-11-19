@@ -41,6 +41,27 @@ The private bucket contains the free reward and Acción paid pack. All public pa
 
 Use the supported Node runtime in `.nvmrc`. `test:db` needs working PostgreSQL binaries for its isolated concurrency suite; set `PHASE1_POSTGRES_BIN=/path/to/postgresql-17/bin` if the default installation is broken. Tests use local/mock boundaries and do not authorize new provider payments or email.
 
+## Music catalog media and signup
+
+The catalog in `src/data/content.ts` maps each release to its own preview. The player loads that file after the listener presses play. The six excerpts below were cut from local artist-supplied media, using entries after the opening and short fades. FFmpeg encoded them as stereo AAC-LC at 44.1 kHz in fast-start `.m4a` containers. Gain trims leave headroom after encoding.
+
+| Release   | Source under `source-media/` | Excerpt         | Duration |   Bytes | Decode / true peak |
+| --------- | ---------------------------- | --------------- | -------: | ------: | ------------------ |
+| Shorty    | `shortyyy master 103.wav`    | 0:42.88–1:12.88 | 30.000 s | 863,440 | Pass / −1.3 dBTP   |
+| Lalo      | `lalo-master-4.mp3`          | 0:27.97–0:57.97 | 30.000 s | 872,107 | Pass / −1.7 dBTP   |
+| Sunday    | `sunday-master-clipped.wav`  | 0:11.07–0:41.07 | 30.000 s | 864,796 | Pass / −1.2 dBTP   |
+| Fria      | `fria master 8.wav`          | 0:24.43–0:54.43 | 30.000 s | 867,041 | Pass / −1.3 dBTP   |
+| Me Avisas | `Me Avisas Master.wav`       | 0:20.46–0:50.46 | 30.000 s | 892,006 | Pass / −0.5 dBTP   |
+| 12 Uvas   | `12 uvas master.wav`         | 0:29.99–0:59.99 | 30.000 s | 868,836 | Pass / −2.2 dBTP   |
+
+The supplied Fria WAV runs 2:24.38. Apple Music lists the distributed track at 2:30.02. The preview uses the supplied WAV. Playwright covers playback and release mapping for all six files in the shared player.
+
+Sunday has no verified Amazon Music destination. The old Fria and Me Avisas Amazon listings do not resolve to a playable release in the tested storefronts. Their other platform links remain available.
+
+The bilingual `/privacy` route describes the current flows and provides contact through the artist’s public Instagram account and the reply address in site emails. The owner should confirm that these channels are monitored for access, correction and deletion requests. The policy describes why records are retained. A formal retention schedule and a dedicated public privacy inbox require owner input before they can be documented.
+
+The shared “Únete a la cultura” form requests the wallpaper and keeps marketing opt-in optional. `capture-fan` binds that choice to the request and records pending permission under consent copy version `2026-10-23`. The separate inbox confirmation grants permission. A future checkbox-free form would need a dedicated subscription action and server validation that records the new disclosure version and affirmative action on that request. Reward-only capture would continue to work independently.
+
 ## Accepted release and production configuration
 
 - First Git-based production release: Vercel project `d2fan-stage-a`, deployment `dpl_H3J7UBFonMMjRnJvtTi546SLeewo` at commit `a045c370036d259af4c5d9351af81cd97046c7d4`. The existing project is connected to `dev-ign/d2fan`, with `main` as the production branch. Automatic production domain assignment is enabled and gated by the required GitHub `verify` check. Previous accepted deployment `dpl_Dsvm8adoEZeAsZs3iVfCnoDU4sLc` is retained as the first-release D2C rollback target.

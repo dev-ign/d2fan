@@ -19,13 +19,16 @@ export interface MusicRelease {
   artistId: string;
   slug: string;
   title: string;
+  artistCredit?: string;
   releaseDate: string;
   coverArt: string;
   theme?: ReleaseTheme;
   previewUrl?: string;
-  featured: boolean;
   streamingLinks: Partial<
-    Record<"spotify" | "appleMusic" | "youtube" | "amazonMusic", string>
+    Record<
+      "spotify" | "appleMusic" | "youtube" | "amazonMusic" | "tidal",
+      string
+    >
   >;
 }
 

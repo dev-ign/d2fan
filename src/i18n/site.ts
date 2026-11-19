@@ -88,9 +88,9 @@ export const english = {
     notSecond: "HERE.",
     back: "Back to music",
     listen: "Listen to this release",
+    listenOn: "Listen to {title} on {service}",
     stay: "Stay",
     close: "close.",
-    invitation: "New music, exclusives, and a little more from me.",
   },
   vault: {
     first: "THE",
@@ -131,7 +131,7 @@ export const english = {
     first: "STAY",
     second: "CLOSE.",
     intro:
-      "New music, unreleased drops, and a few things I don't share anywhere else. Straight from me to you.",
+      "Sign up to request new music and release updates from Jona Ferreira by email.",
     incentive: "Exclusive Acción wallpaper when you join.",
     footer: "Jona Ferreira — independent music, direct to you.",
   },
@@ -139,6 +139,8 @@ export const english = {
     emailLabel: "YOUR EMAIL",
     placeholder: "you@email.com",
     join: "JOIN LA CULTURA",
+    disclosure:
+      "Joining saves your email and requests the wallpaper when available. Music updates are optional.",
     channel: "Delivery channel",
     email: "Email",
     whatsapp: "WhatsApp · coming soon",
@@ -154,6 +156,25 @@ export const english = {
     operator: "Stripe test mode · authorized operator · no real charge",
   },
   privacy: {
+    title: "Privacy Policy",
+    description:
+      "How Jona Ferreira uses your information and how to manage your privacy choices.",
+    effective: "Updated {date}. Effective when published.",
+    operator:
+      "Jona Ferreira operates jonaferreira.com. This policy covers how the site handles your information when you listen, join La Cultura, request access or support the artist.",
+    signupTitle: "Signups, rewards and email",
+    signup:
+      "When you sign up, we collect your email address, preferred language and signup source. We use this information to save your signup and provide the reward you requested when available. We use Resend to deliver requested emails. If you separately ask for music and release updates, we record that request and require you to confirm it by email before granting marketing permission. Promotional sending is currently disabled. You can withdraw permission using the unsubscribe link in marketing emails.",
+    purchasesTitle: "Purchases and downloads",
+    purchases:
+      "When checkout is available, Stripe handles payment details. We keep the purchase, contact and access records needed to deliver downloads, confirm payment and help you recover access. Supabase stores site records and hosts private files. The site verifies access before issuing temporary links to those files.",
+    measurementTitle: "Browser settings and measurement",
+    measurement:
+      "The site remembers your language and measurement choice in your browser. If you allow campaign measurement in the footer, the site can share activity with Meta, such as page visits, streaming link clicks and campaign conversions. You can turn measurement off there at any time. Music links take you to other services, whose privacy policies apply on their sites.",
+    retentionTitle: "Retention and your choices",
+    retention:
+      "We keep signup, consent and access records as needed to provide the services you request, honor unsubscribes, account for purchases and meet legal obligations. To request access, correction or deletion, reply to a site email or contact Jona Ferreira through the artist’s official Instagram account. We may verify that you control the email address before acting on a request.",
+    contact: "Contact Jona Ferreira on Instagram",
     allow: "Allow campaign measurement with Meta",
     optional: "Optional. Music and purchases work either way.",
     error:
@@ -317,9 +338,9 @@ export const spanish: SiteMessages = {
     notSecond: "AQUÍ.",
     back: "Volver a la música",
     listen: "Escucha este lanzamiento",
+    listenOn: "Escucha {title} en {service}",
     stay: "Mantente",
     close: "cerca.",
-    invitation: "Música nueva, exclusivos y un poco más de mí.",
   },
   vault: {
     first: "EL",
@@ -360,7 +381,7 @@ export const spanish: SiteMessages = {
     first: "MANTENTE",
     second: "CERCA.",
     intro:
-      "Música nueva, lanzamientos inéditos y algunas cosas que no comparto en ningún otro lugar. Directamente de mí para ti.",
+      "Regístrate para solicitar música nueva y novedades sobre los lanzamientos de Jona Ferreira por correo.",
     incentive: "Recibe un fondo de pantalla exclusivo de Acción al unirte.",
     footer: "Jona Ferreira — música independiente, directa para ti.",
   },
@@ -368,6 +389,8 @@ export const spanish: SiteMessages = {
     emailLabel: "TU CORREO",
     placeholder: "tu@correo.com",
     join: "ÚNETE A LA CULTURA",
+    disclosure:
+      "Al unirte, guardamos tu correo y solicitamos el fondo de pantalla cuando esté disponible. Las novedades son opcionales.",
     channel: "Canal de entrega",
     email: "Correo",
     whatsapp: "WhatsApp · próximamente",
@@ -383,6 +406,25 @@ export const spanish: SiteMessages = {
     operator: "Modo de prueba de Stripe · operador autorizado · sin cobro real",
   },
   privacy: {
+    title: "Política de privacidad",
+    description:
+      "Cómo Jona Ferreira usa tu información y cómo gestionar tus opciones de privacidad.",
+    effective: "Actualizada el {date}. En vigor a partir de su publicación.",
+    operator:
+      "Jona Ferreira opera jonaferreira.com. Esta política explica cómo el sitio usa tu información cuando escuchas música, te unes a La Cultura, solicitas acceso o apoyas al artista.",
+    signupTitle: "Registro, recompensas y correo",
+    signup:
+      "Cuando te registras, recopilamos tu correo, tu idioma preferido y el origen de tu registro. Usamos estos datos para guardar tu registro y entregarte la recompensa solicitada cuando esté disponible. Usamos Resend para enviar los correos solicitados. Si pides por separado recibir música y novedades sobre lanzamientos, registramos tu solicitud y te pedimos que la confirmes por correo antes de conceder el permiso de marketing. El envío de promociones está desactivado. Puedes retirar tu permiso con el enlace para darte de baja incluido en los correos promocionales.",
+    purchasesTitle: "Compras y descargas",
+    purchases:
+      "Cuando los pagos están disponibles, Stripe gestiona los datos de pago. Conservamos los datos de compra, contacto y acceso necesarios para entregar descargas, confirmar el pago y ayudarte a recuperar el acceso. Supabase guarda los registros del sitio y aloja archivos privados. El sitio verifica tu acceso antes de generar enlaces temporales a esos archivos.",
+    measurementTitle: "Preferencias del navegador y medición",
+    measurement:
+      "El sitio recuerda tu idioma y tu preferencia de medición en el navegador. Si permites la medición de campañas en el pie de página, el sitio puede compartir actividad con Meta, como visitas, clics en enlaces de música y conversiones de campañas. Puedes desactivarla allí en cualquier momento. Los enlaces de música te llevan a otros servicios, que aplican sus propias políticas de privacidad.",
+    retentionTitle: "Conservación de datos y tus opciones",
+    retention:
+      "Conservamos los datos de inscripción, consentimiento y acceso durante el tiempo necesario para prestar los servicios que solicitas, respetar las bajas, llevar la contabilidad de las compras y cumplir obligaciones legales. Para solicitar acceso, corrección o eliminación, responde a un correo del sitio o contacta a Jona Ferreira a través de la cuenta oficial de Instagram del artista. Es posible que verifiquemos que controlas la dirección de correo antes de tramitar tu solicitud.",
+    contact: "Contacta a Jona Ferreira en Instagram",
     allow: "Permitir la medición de campañas con Meta",
     optional:
       "Es opcional. La música y las compras funcionan de cualquier forma.",

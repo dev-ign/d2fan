@@ -1,5 +1,5 @@
 import { useLocale, text, audioError } from "../../hooks/useLocale";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, LoaderCircle, Play, RotateCw } from "lucide-react";
 import type { MusicRelease } from "../../domain/types";
@@ -7,16 +7,56 @@ import { useAudio } from "../../hooks/useAudio";
 import { Waveform } from "../../components/Waveform";
 import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
 import { resolveReleaseTheme } from "../../domain/releaseTheme";
-import { analytics } from "../../services/analytics";
-import { platformNames } from "../../config/streaming";
+import { StreamingMenu } from "./StreamingMenu";
 
-export function MusicSection({ releases }: { releases: MusicRelease[] }) {
+export function MusicSection({
+  releases,
+  featuredReleaseId,
+}: {
+  releases: MusicRelease[];
+  featuredReleaseId: string;
+}) {
   const { t, locale } = useLocale();
-  const [index, setIndex] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(() =>
+    Math.max(
+      releases.findIndex((release) => release.id === featuredReleaseId),
+      0,
+    ),
+  );
+  const indicators = useRef<HTMLDivElement>(null);
   const audio = useAudio();
   const active = releases[index];
+
+  useLayoutEffect(() => {
+    const strip = indicators.current;
+    const selected = strip?.children.item(index) as HTMLElement | null;
+    if (!strip || !selected) return;
+
+    const revealSelection = (behavior: ScrollBehavior) => {
+      const start = selected.offsetLeft;
+      const end = start + selected.offsetWidth;
+      if (start < strip.scrollLeft - 1) {
+        strip.scrollTo({ left: start, behavior });
+      } else if (end > strip.scrollLeft + strip.clientWidth + 1) {
+        strip.scrollTo({ left: end - strip.clientWidth, behavior });
+      }
+    };
+    revealSelection(
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    );
+    let width = strip.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (strip.clientWidth === width) return;
+      width = strip.clientWidth;
+      revealSelection("instant");
+    });
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [index]);
+
+  if (!active) return null;
   const previous = releases[index === 0 ? releases.length - 1 : index - 1];
   const next = releases[(index + 1) % releases.length];
   const activePlaying =
@@ -26,27 +66,9 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
   const activeError =
     audio.release?.id === active.id && audio.status === "error";
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function close(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [menuOpen]);
-
-  if (!active) return null;
   function select(nextIndex: number) {
     const normalized = (nextIndex + releases.length) % releases.length;
     setIndex(normalized);
-    setMenuOpen(false);
   }
   async function togglePreview() {
     if (audio.release?.id === active.id) await audio.toggle();
@@ -69,31 +91,38 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
         <div className="music-main">
           <div className="release-details reveal">
             <div className="release-head">
-              <button
-                className="round-play"
-                type="button"
-                onClick={() => void togglePreview()}
-                disabled={activeLoading}
-                aria-label={
-                  activeLoading
-                    ? text(t.music.loading, { title: active.title })
-                    : activeError
-                      ? text(t.music.retry, { title: active.title })
-                      : activePlaying
-                        ? text(t.music.pause, { title: active.title })
-                        : text(t.music.play, { title: active.title })
-                }
-              >
-                {activeLoading ? (
-                  <LoaderCircle className="spin-icon" size={28} />
-                ) : activeError ? (
-                  <RotateCw size={28} />
-                ) : activePlaying ? (
-                  <img src="/assets/pause.svg" alt="" width="26" height="26" />
-                ) : (
-                  <Play fill="currentColor" size={28} />
-                )}
-              </button>
+              {active.previewUrl && (
+                <button
+                  className="round-play"
+                  type="button"
+                  onClick={() => void togglePreview()}
+                  disabled={activeLoading}
+                  aria-label={
+                    activeLoading
+                      ? text(t.music.loading, { title: active.title })
+                      : activeError
+                        ? text(t.music.retry, { title: active.title })
+                        : activePlaying
+                          ? text(t.music.pause, { title: active.title })
+                          : text(t.music.play, { title: active.title })
+                  }
+                >
+                  {activeLoading ? (
+                    <LoaderCircle className="spin-icon" size={28} />
+                  ) : activeError ? (
+                    <RotateCw size={28} />
+                  ) : activePlaying ? (
+                    <img
+                      src="/assets/pause.svg"
+                      alt=""
+                      width="26"
+                      height="26"
+                    />
+                  ) : (
+                    <Play fill="currentColor" size={28} />
+                  )}
+                </button>
+              )}
               <div>
                 <h3>{active.title}</h3>
                 <p>
@@ -111,53 +140,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               </p>
             )}
             <div className="release-actions">
-              <div className="stream-anchor" ref={menuRef}>
-                <button
-                  className="button button--outline"
-                  type="button"
-                  aria-expanded={menuOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setMenuOpen(!menuOpen)}
-                >
-                  {t.music.listen}{" "}
-                  <img src="/assets/down.svg" alt="" width="12" height="12" />
-                </button>
-                {menuOpen && (
-                  <div className="stream-menu" role="menu">
-                    {Object.entries(active.streamingLinks).map(
-                      ([platform, url]) =>
-                        url && (
-                          <a
-                            role="menuitem"
-                            key={platform}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => {
-                              setMenuOpen(false);
-                              analytics.track("DSPClick", {
-                                release_slug: active.slug,
-                                platform,
-                              });
-                            }}
-                          >
-                            {
-                              platformNames[
-                                platform as keyof MusicRelease["streamingLinks"]
-                              ]
-                            }
-                            <img
-                              src="/assets/external.svg"
-                              alt=""
-                              width="12"
-                              height="12"
-                            />
-                          </a>
-                        ),
-                    )}
-                  </div>
-                )}
-              </div>
+              <StreamingMenu key={active.id} release={active} />
               <Link className="release-link" to={`/music/${active.slug}`}>
                 {t.music.releasePage} <ArrowRight size={18} />
               </Link>
@@ -170,12 +153,21 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               onClick={() => select(releases.indexOf(previous))}
               aria-label={text(t.common.select, { title: previous.title })}
             >
-              <img src={previous.coverArt} alt="" />
+              <img
+                src={previous.coverArt}
+                alt=""
+                width="640"
+                height="640"
+                loading="lazy"
+              />
             </button>
             <div className="active-art" key={active.id}>
               <img
                 src={active.coverArt}
                 alt={text(t.common.cover, { title: active.title })}
+                width="640"
+                height="640"
+                loading="lazy"
               />
               {audio.release?.id === active.id && (
                 <span className="playing-chip">
@@ -196,12 +188,20 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
               onClick={() => select(releases.indexOf(next))}
               aria-label={text(t.common.select, { title: next.title })}
             >
-              <img src={next.coverArt} alt="" />
+              <img
+                src={next.coverArt}
+                alt=""
+                width="640"
+                height="640"
+                loading="lazy"
+              />
             </button>
           </div>
         </div>
         <div className="music-controls reveal">
-          <span>{Math.min(Math.floor(index / 2) + 1, 3)} / 3</span>
+          <span>
+            {index + 1} / {releases.length}
+          </span>
           <button
             className="circle-arrow"
             type="button"
@@ -221,6 +221,7 @@ export function MusicSection({ releases }: { releases: MusicRelease[] }) {
         </div>
         <div
           className="release-tabs reveal"
+          ref={indicators}
           role="group"
           aria-label={t.music.choose}
         >

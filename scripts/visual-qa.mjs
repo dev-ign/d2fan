@@ -42,6 +42,7 @@ await page.locator("#music").scrollIntoViewIfNeeded();
 await page.getByRole("button", { name: "Listen on" }).click();
 await page.screenshot({ path: `${outputDir}/streaming-menu.png` });
 await page.keyboard.press("Escape");
+await page.getByRole("button", { name: "Acción", exact: true }).click();
 await page.getByRole("button", { name: "Play Acción preview" }).click();
 await page.getByRole("button", { name: "Pause Acción preview" }).waitFor();
 await page.getByRole("button", { name: "Open audio player" }).click();

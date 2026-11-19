@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Download } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { CaptureResponse } from "../../../supabase/shared/contracts";
 import { normalizeEmail } from "../../../supabase/shared/validation";
 import { useLocale } from "../../hooks/useLocale";
@@ -23,6 +24,7 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
   const busy = useRef(false);
   const emailId = compact ? "release-email" : "email";
   const statusId = `${emailId}-status`;
+  const disclosureId = `${emailId}-disclosure`;
   const titleId = compact
     ? "release-confirmation-title"
     : "stay-confirmation-title";
@@ -196,6 +198,7 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
           <label className="consent-control">
             <input
               type="checkbox"
+              aria-describedby={disclosureId}
               checked={optIn}
               onChange={(event) => {
                 setOptIn(event.target.checked);
@@ -205,6 +208,9 @@ export function FanCaptureForm({ compact = false }: { compact?: boolean }) {
             />
             {t.emailOptIn}
           </label>
+          <p id={disclosureId} className="capture-disclosure">
+            {t.forms.disclosure} <Link to="/privacy">{t.privacy.title}</Link>
+          </p>
           <p
             id={statusId}
             className={`form-status${state === "error" || state === "invalid" ? " form-status--error" : ""}`}
