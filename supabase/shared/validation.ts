@@ -33,26 +33,40 @@ export function uuid(value: unknown): value is string {
     )
   );
 }
+export const campaignParameters = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "ref",
+] as const;
+
 export function boundedAttribution(value: unknown): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const input = value as Record<string, unknown>;
   const result: Record<string, string> = {};
-  for (const key of [
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_content",
-    "utm_term",
-    "ref",
-    "release",
-  ]) {
-    const v = (value as Record<string, unknown>)[key];
+  for (const key of [...campaignParameters, "release"]) {
+    const v = input[key];
     // Campaign labels only; exclude URLs, tokens and likely contact information.
     if (
       typeof v === "string" &&
       /^[\p{L}\p{N}_ .-]{1,100}$/u.test(v) &&
-      !/\d{7}/.test(v)
+      !/(?:\d[ .-]?){6}\d/.test(v)
     )
       result[key] = v;
   }
+  if (
+    typeof input.campaign_id === "string" &&
+    /^[a-z][a-z0-9_-]{0,79}$/.test(input.campaign_id) &&
+    !/(?:\d[ .-]?){6}\d/.test(input.campaign_id)
+  )
+    result.campaign_id = input.campaign_id;
+  if (
+    typeof input.landing_path === "string" &&
+    /^(?:\/|\/music\/[a-z0-9-]{1,80})$/.test(input.landing_path) &&
+    !/(?:\d[ .-]?){6}\d/.test(input.landing_path)
+  )
+    result.landing_path = input.landing_path;
   return result;
 }

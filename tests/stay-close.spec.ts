@@ -140,7 +140,12 @@ test("La Cultura offers two signed wallpapers and keeps marketing optional", asy
     rewardId: "la_cultura_wallpapers",
     emailMarketing: false,
     analyticsConsent: false,
-    lastTouch: { release: "sayyouluvme", utm_campaign: "sayyouluvme_2026" },
+    lastTouch: {
+      release: "sayyouluvme",
+      utm_campaign: "sayyouluvme_2026",
+      campaign_id: "sayyouluvme_2026",
+      landing_path: "/music/sayyouluvme",
+    },
   });
 
   legacyResponse = true;

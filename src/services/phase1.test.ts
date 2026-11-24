@@ -82,6 +82,10 @@ describe("attribution", () => {
     history.replaceState(null, "", "/music/accion?utm_source=direct");
     const next = attribution();
     expect(next.firstTouch.utm_source).toBe("instagram");
-    expect(next.lastTouch).toEqual({ utm_source: "direct", release: "accion" });
+    expect(next.lastTouch).toEqual({
+      utm_source: "direct",
+      release: "accion",
+      landing_path: "/music/accion",
+    });
   });
 });

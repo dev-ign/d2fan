@@ -65,6 +65,11 @@ Deno.test(
           payload.p_reward_id === "la_cultura_wallpapers" &&
             payload.p_opt_in === false,
         );
+        assert(payload.p_first.utm_source === "instagram");
+        assert(payload.p_first.landing_path === undefined);
+        assert(payload.p_last.campaign_id === "sayyouluvme_2026");
+        assert(payload.p_last.landing_path === "/music/sayyouluvme");
+        assert(payload.p_last.utm_term === undefined);
         return Promise.resolve(Response.json(fanId));
       }
       if (url.pathname.endsWith("/delivery_jobs")) {
@@ -100,6 +105,13 @@ Deno.test(
         emailMarketing: false,
         analyticsConsent: false,
         rewardId: "la_cultura_wallpapers",
+        firstTouch: { utm_source: "instagram", landing_path: "/?private=yes" },
+        lastTouch: {
+          release: "sayyouluvme",
+          campaign_id: "sayyouluvme_2026",
+          landing_path: "/music/sayyouluvme",
+          utm_term: "617-555-0100",
+        },
       };
       await rejects(
         () => captureFan(req, { ...body, source: "support_modal" }),
