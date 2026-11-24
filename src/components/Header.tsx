@@ -1,5 +1,5 @@
 import { LanguageMenu } from "./LanguageMenu";
-import { useLocale, audioError } from "../hooks/useLocale";
+import { useLocale, audioError, text } from "../hooks/useLocale";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { LoaderCircle, Menu, Pause, Play, RotateCw, X } from "lucide-react";
@@ -10,6 +10,7 @@ import { NavigationMenu } from "./NavigationMenu";
 import { navigation } from "../config/navigation";
 import { useActiveSection } from "../hooks/useActiveSection";
 import { runtime } from "../config/runtime";
+import { artist } from "../data/content";
 
 function formatTime(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -121,7 +122,13 @@ export function Header({
                             />
                             <div>
                               <strong>{audio.release.title}</strong>
-                              <span>{t.player.metadata}</span>
+                              <span>
+                                {text(t.player.metadata, {
+                                  artist:
+                                    audio.release.artistCredit ??
+                                    artist.displayName,
+                                })}
+                              </span>
                             </div>
                             <button
                               type="button"

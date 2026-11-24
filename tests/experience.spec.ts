@@ -1,6 +1,10 @@
 import { expect, test } from "./fixtures";
 import { platformNames, streamingPlatforms } from "../src/config/streaming";
-import { releases } from "../src/data/content";
+import { releases as catalog } from "../src/data/content";
+const releases = catalog.filter(
+  (item) => item.publicationStatus !== "upcoming",
+);
+const shorty = releases.find((item) => item.slug === "shorty")!;
 test.beforeEach(async ({ page }) => {
   await page.route("**/functions/v1/**", (route) =>
     route.fulfill({
@@ -142,15 +146,203 @@ test("direct release routes resolve and unknown slugs are handled", async ({
   await expect(page).toHaveURL("/");
 });
 
+test("SayYouLuvMe landing shares the campaign and preserves optional signup consent", async ({
+  page,
+}, testInfo) => {
+  const route = "/music/sayyouluvme";
+  const canonical = `https://jonaferreira.com${route}`;
+  const shared = `${canonical}?utm_source=fan_share&utm_medium=referral&utm_campaign=sayyouluvme_2026`;
+  const incoming =
+    "utm_source=instagram&utm_medium=organic_social&utm_campaign=sayyouluvme_2026&utm_content=sbfaraon_stories&utm_term=release_week&email=ignored%40example.com";
+  const reward = "https://storage.example.com/signed-accion-wallpaper";
+  const single = catalog.find((item) => item.slug === "sayyouluvme")!;
+  let capture: unknown;
+  await page.route("**/functions/v1/capture-fan", async (request) => {
+    capture = request.request().postDataJSON();
+    await request.fulfill({
+      json: {
+        success: true,
+        data: { magnetUrl: reward, delivery: "disabled" },
+      },
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          document.documentElement.dataset.copied = value;
+        },
+      },
+    });
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${route}?${incoming}`);
+  const title = page.getByRole("heading", { name: "SayYouLuvMe", exact: true });
+  await expect(title).toBeVisible();
+  await expect(title).toHaveCSS("text-transform", "none");
+  await expect(page.locator(".release-artist")).toHaveText(
+    "Jona Ferreira & SBFaraon",
+  );
+  await expect(page.locator(".release-date time")).toHaveText(
+    "November 27, 2026",
+  );
+  await expect(page.locator(".release-date")).toContainText(
+    single.publicationStatus === "upcoming" ? "Upcoming single" : "Out now",
+  );
+  if (single.publicationStatus === "upcoming") {
+    await expect(page.locator(".preview-action, .stream-links")).toHaveCount(0);
+  }
+  await expect(page).toHaveURL(route);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    canonical,
+  );
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    "content",
+    "https://jonaferreira.com/assets/sayyouloveme-cover2.jpg",
+  );
+  await expect(
+    page.getByRole("img", { name: "SayYouLuvMe cover art" }),
+  ).toHaveJSProperty("naturalWidth", 1200);
+  await page.screenshot({
+    path: testInfo.outputPath("release-desktop-en.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Send this song to someone special" })
+    .click();
+  await expect(page.getByText("Link copied.", { exact: true })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-copied", shared);
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "share", {
+      value: async ({ title, url }: ShareData) => {
+        document.documentElement.dataset.nativeShare = `${title}|${url}`;
+      },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Send this song to someone special" })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-native-share",
+    `SayYouLuvMe — Jona Ferreira & SBFaraon|${shared}`,
+  );
+
+  const form = page.locator("#release-signup");
+  await expect(form).toContainText("free Acción wallpaper");
+  await expect(form.getByRole("checkbox")).not.toBeChecked();
+  await form.getByLabel("YOUR EMAIL", { exact: true }).fill("fan@example.com");
+  await form.getByRole("button", { name: "JOIN LA CULTURA" }).click();
+  await expect(form.getByRole("link", { name: /download/i })).toHaveAttribute(
+    "href",
+    reward,
+  );
+  await expect(form).toContainText("You requested the wallpaper only");
+  const attribution = {
+    release: "sayyouluvme",
+    utm_source: "instagram",
+    utm_medium: "organic_social",
+    utm_campaign: "sayyouluvme_2026",
+    utm_content: "sbfaraon_stories",
+    utm_term: "release_week",
+  };
+  expect(capture).toMatchObject({
+    emailMarketing: false,
+    analyticsConsent: false,
+    firstTouch: attribution,
+    lastTouch: attribution,
+  });
+  expect(capture).not.toHaveProperty("firstTouch.email");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem("jona:locale", "es"));
+  await page.goto(route);
+  await expect(page.locator(".release-date time")).toHaveText(
+    "27 de noviembre de 2026",
+  );
+  await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute(
+    "content",
+    "es_US",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("release-mobile-es.png"),
+    fullPage: true,
+  });
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "clipboard", { value: undefined }),
+  );
+  await page
+    .getByRole("button", { name: "Dedícale esta canción a alguien especial" })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Enlace del lanzamiento" }),
+  ).toHaveValue(shared);
+  await page.getByRole("link", { name: "Explora más música" }).click();
+  await expect(page).toHaveURL("/#music");
+});
+
+test("SayYouLuvMe publishes at midnight Eastern on the server clock without exposing audio", async ({
+  page,
+}) => {
+  const midnight = Date.parse("2026-11-27T05:00:00Z");
+  let serverNow = midnight - 1_000;
+  await page.clock.setFixedTime(new Date("2026-12-01T00:00:00Z"));
+  await page.route("**/api/release-clock", (route) =>
+    route.fulfill({ json: { now: serverNow } }),
+  );
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#music");
+  await expect(
+    page.getByRole("link", { name: "Upcoming release: SayYouLuvMe" }),
+  ).toBeVisible();
+  const catalog = page.locator("#music");
+  const single = catalog.getByRole("button", {
+    name: "SayYouLuvMe",
+    exact: true,
+  });
+  await expect(single).toHaveCount(0);
+  await catalog
+    .getByRole("button", { name: "Darte Nota", exact: true })
+    .click();
+  serverNow = midnight;
+
+  await expect(
+    page.getByRole("link", { name: "Latest release: SayYouLuvMe" }),
+  ).toBeVisible();
+  await expect(single).toBeVisible();
+  await expect(catalog.locator(".release-head h3")).toHaveText("Darte Nota");
+  await single.click();
+  await expect(catalog).toContainText("Out now");
+  await expect(
+    catalog.getByRole("button", { name: /Play SayYouLuvMe preview/ }),
+  ).toHaveCount(0);
+  await catalog.getByRole("link", { name: "Release page" }).click();
+  await expect(page.locator(".release-date")).toContainText("Out now");
+  await expect(page.locator(".preview-action, .stream-links")).toHaveCount(0);
+
+  await page.locator(".language-trigger").click();
+  await page.getByRole("menuitemradio", { name: /ES/ }).click();
+  await expect(page.locator(".release-date")).toContainText("Ya disponible");
+});
+
 test("the featured catalog and every release page share the same streaming destinations", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#music");
-  await expect(page.locator(".release-head h3")).toHaveText("Shorty");
+  await expect(page.locator(".release-head h3")).toHaveText(releases[0].title);
   await expect(
-    page.getByRole("link", { name: "Latest release: Shorty" }),
-  ).toHaveAttribute("href", "/music/shorty");
+    page.getByRole("link", { name: /release: SayYouLuvMe/ }),
+  ).toHaveAttribute("href", "/music/sayyouluvme");
+  await page.getByRole("button", { name: "Shorty", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Play Shorty preview" }),
   ).toBeVisible();
@@ -194,6 +386,10 @@ test("the featured catalog and every release page share the same streaming desti
     await page
       .getByRole("button", { name: release.title, exact: true })
       .click();
+    if (Object.keys(release.streamingLinks).length === 0) {
+      await expect(listen).toHaveCount(0);
+      continue;
+    }
     await listen.click();
     await checkDestinations(release);
     await page.keyboard.press("Escape");
@@ -296,7 +492,7 @@ test("streaming tooltips fit above the icons without moving the link row", async
 test("streaming tooltips follow keyboard focus and dismiss on Escape and Enter", async ({
   page,
 }) => {
-  const destination = releases[0].streamingLinks.tidal!;
+  const destination = shorty.streamingLinks.tidal!;
   await page
     .context()
     .route(destination, (route) => route.fulfill({ body: "TIDAL" }));
@@ -346,7 +542,7 @@ test.describe("streaming icons on touch screens", () => {
   test("one tap opens the service while keyboard focus still shows the brand name", async ({
     page,
   }) => {
-    const destination = releases[0].streamingLinks.spotify!;
+    const destination = shorty.streamingLinks.spotify!;
     await page
       .context()
       .route(destination, (route) => route.fulfill({ body: "Spotify" }));
@@ -469,10 +665,7 @@ test("new previews play from their own files on one audio element without autopl
     });
   await page.goto("/#music");
   const strip = page.getByRole("group", { name: "Choose a release" });
-  for (const [index, release] of [
-    releases[0],
-    ...releases.slice(7),
-  ].entries()) {
+  for (const [index, release] of [shorty, ...releases.slice(7)].entries()) {
     await strip
       .getByRole("button", { name: release.title, exact: true })
       .click();
@@ -526,6 +719,7 @@ test("Shorty listening fits a small Spanish viewport", async ({ page }) => {
   const menu = page.getByRole("menu", { name: "Escuchar en" });
   await page.goto("/#music");
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await page.getByRole("button", { name: "Shorty", exact: true }).click();
   await listen.press("ArrowDown");
   const spotify = menu.getByRole("menuitem", { name: "Spotify" });
   await expect(spotify).toBeFocused();

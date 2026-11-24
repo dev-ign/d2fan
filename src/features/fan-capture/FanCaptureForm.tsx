@@ -5,11 +5,13 @@ import type {
   CaptureResponse,
   ServiceResult,
 } from "../../../supabase/shared/contracts";
+import { wallpaperPackId } from "../../../supabase/shared/contracts";
 import { normalizeEmail } from "../../../supabase/shared/validation";
 import { useLocale } from "../../hooks/useLocale";
 import { fanService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
 import { attribution } from "../../services/attribution";
+import { runtime } from "../../config/runtime";
 
 /** The existing capture contract, shared by the invitation and release pages. */
 export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
@@ -17,6 +19,7 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
   const placement = compact ? "release_page" : "home";
   const [email, setEmail] = useState("");
   const { locale: language, t } = useLocale();
+  const pack = runtime.laCulturaWallpapers;
   const [optIn, setOptIn] = useState(false);
   const [state, setState] = useState<
     "idle" | "invalid" | "loading" | "error" | "success"
@@ -38,17 +41,37 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
   const titleId = compact
     ? "release-confirmation-title"
     : "stay-confirmation-title";
-  const successTitle = optIn ? t.updatesRequested : t.rewardRequested;
   const delivery = capture?.delivery;
-  const rewardUnavailable =
-    !capture?.magnetUrl && delivery !== "queued" && delivery !== "sent";
-  const rewardMessage = capture?.magnetUrl
-    ? t.rewardReady
-    : delivery === "queued"
-      ? t.rewardEmailQueued
-      : delivery === "sent"
-        ? t.rewardEmailAccepted
-        : t.rewardUnavailable;
+  const downloads =
+    capture?.rewardId === wallpaperPackId ? (capture.wallpaperLinks ?? []) : [];
+  const packReady =
+    downloads.some((link) => link.device === "mobile") &&
+    downloads.some((link) => link.device === "desktop");
+  const directReady = pack ? packReady : Boolean(capture?.magnetUrl);
+  const deliveredByEmail =
+    (!pack || capture?.rewardId === wallpaperPackId) &&
+    (delivery === "queued" || delivery === "sent");
+  const successTitle =
+    pack && directReady
+      ? t.wallpapers.ready
+      : optIn
+        ? t.updatesRequested
+        : pack
+          ? t.wallpapers.requested
+          : t.rewardRequested;
+  const rewardUnavailable = !directReady && !deliveredByEmail;
+  let rewardMessage = pack ? t.wallpapers.unavailable : t.rewardUnavailable;
+  if (directReady)
+    rewardMessage = pack ? t.wallpapers.readyMessage : t.rewardReady;
+  else if (deliveredByEmail)
+    rewardMessage =
+      delivery === "queued"
+        ? pack
+          ? t.wallpapers.emailQueued
+          : t.rewardEmailQueued
+        : pack
+          ? t.wallpapers.emailAccepted
+          : t.rewardEmailAccepted;
   const confirmationMessage = capture
     ? ({
         queued: t.marketingConfirmation,
@@ -142,6 +165,7 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
         source: "stay_close",
         emailMarketing: optIn,
         analyticsConsent: analytics.allowed(),
+        ...(pack && { rewardId: wallpaperPackId }),
         ...requestAttribution.current,
       });
       if (result.success) {
@@ -192,10 +216,39 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
             <h3 id={titleId} ref={title} tabIndex={-1}>
               {successTitle}
             </h3>
-            {optIn && <p>{t.captureSaved}</p>}
+            {optIn && (!pack || !directReady) && (
+              <p>{pack ? t.wallpapers.captureSaved : t.captureSaved}</p>
+            )}
             <div className="stay-reward-status">
               <p>{rewardMessage}</p>
-              {capture.magnetUrl && (
+              {pack && packReady && (
+                <div className="wallpaper-downloads">
+                  {downloads.map(
+                    ({ device, url }) =>
+                      device && (
+                        <a
+                          key={device}
+                          className="button button--lime"
+                          href={url}
+                          rel="noreferrer"
+                          onClick={() =>
+                            analytics.track("RewardDownloadClicked", {
+                              reward_id: wallpaperPackId,
+                              wallpaper_device: device,
+                              ...(releaseSlug && { release_slug: releaseSlug }),
+                              placement,
+                              language,
+                            })
+                          }
+                        >
+                          <Download size={18} aria-hidden="true" />
+                          {t.wallpapers[device]}
+                        </a>
+                      ),
+                  )}
+                </div>
+              )}
+              {!pack && capture.magnetUrl && (
                 <a
                   className="button button--lime"
                   href={capture.magnetUrl}
@@ -207,7 +260,11 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
               )}
             </div>
             <p className="stay-confirmation-consent">
-              {optIn ? confirmationMessage : t.marketingNotRequested}
+              {optIn
+                ? confirmationMessage
+                : pack
+                  ? t.wallpapers.rewardOnly
+                  : t.marketingNotRequested}
             </p>
             {rewardUnavailable && (
               <button
@@ -234,7 +291,7 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
           aria-busy={state === "loading"}
         >
           <label className="eyebrow capture-label" htmlFor={emailId}>
-            {t.forms.emailLabel}
+            {pack ? t.wallpapers.email : t.forms.emailLabel}
           </label>
           <div className="capture-input-group">
             <input
@@ -292,7 +349,8 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
             {t.emailOptIn}
           </label>
           <p id={disclosureId} className="capture-disclosure">
-            {t.forms.disclosure} <Link to="/privacy">{t.privacy.title}</Link>
+            {pack ? t.wallpapers.disclosure : t.forms.disclosure}{" "}
+            <Link to="/privacy">{t.privacy.title}</Link>
           </p>
           <p
             id={statusId}

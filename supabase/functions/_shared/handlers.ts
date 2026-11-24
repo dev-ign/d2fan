@@ -22,7 +22,10 @@ import type {
   CheckoutStatus,
   EmailDeliveryStatus,
   RecoveryResponse,
+  RewardDownload,
 } from "../../shared/contracts.ts";
+import { wallpaperPackId } from "../../shared/contracts.ts";
+import { signWallpaperPack } from "./rewards.ts";
 import { authorizePaymentTest, testItemSlug } from "./payment-test.ts";
 import { captureEmailConfigured } from "./email-policy.ts";
 import {
@@ -37,12 +40,14 @@ import {
 
 export async function captureFan(_req: Request, b: Record<string, unknown>) {
   const email = normalizeEmail(b.email);
+  const pack = b.rewardId === wallpaperPackId;
   if (
     !uuid(b.requestId) ||
     !["en", "es"].includes(String(b.language)) ||
     !["stay_close", "support_modal"].includes(String(b.source)) ||
     typeof b.emailMarketing !== "boolean" ||
-    typeof b.analyticsConsent !== "boolean"
+    typeof b.analyticsConsent !== "boolean" ||
+    (b.rewardId !== undefined && (!pack || b.source !== "stay_close"))
   )
     throw new Error("invalid_request");
   await contactLimit(email, "capture");
@@ -58,21 +63,26 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
       last,
     ]),
   );
-  const fan = await rpc<string>("capture_fan", {
-    p_artist: catalog.artistId,
-    p_request: b.requestId,
-    p_email: email,
-    p_language: b.language,
-    p_source: b.source,
-    p_first: first,
-    p_last: last,
-    p_opt_in: b.emailMarketing,
-    p_fingerprint: fingerprint,
-  });
+  const fan = await rpc<string>(
+    pack ? "capture_fan_with_reward" : "capture_fan",
+    {
+      p_artist: catalog.artistId,
+      p_request: b.requestId,
+      p_email: email,
+      p_language: b.language,
+      ...(pack ? { p_reward_id: wallpaperPackId } : { p_source: b.source }),
+      p_first: first,
+      p_last: last,
+      p_opt_in: b.emailMarketing,
+      p_fingerprint: fingerprint,
+    },
+  );
   let magnetUrl: string | undefined;
+  let wallpaperLinks: RewardDownload[] | undefined;
   if (b.source === "stay_close") {
     try {
-      magnetUrl = await signedFile("lead-magnet");
+      if (pack) wallpaperLinks = await signWallpaperPack();
+      else magnetUrl = await signedFile("lead-magnet");
     } catch (error) {
       // Only fixed categories reach logs; capture remains successful. Never log
       // the exception itself: provider messages can contain paths or secrets.
@@ -169,6 +179,7 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
     eventId: `capture:${b.requestId}`,
     delivery,
     magnetUrl,
+    ...(pack && { rewardId: wallpaperPackId, wallpaperLinks }),
   };
 }
 export async function createCheckout(req: Request, b: Record<string, unknown>) {
@@ -600,7 +611,22 @@ export async function deliverLeadMagnet(
   _req: Request,
   b: Record<string, unknown>,
 ) {
-  await verify(b.token, "reward");
+  const claims = await verify(b.token, "reward");
+  if (claims.actionId !== undefined) {
+    if (!uuid(claims.actionId)) throw new Error("unauthorized");
+    const { data: job, error } = await db()
+      .from("delivery_jobs")
+      .select("payload")
+      .eq("artist_id", claims.artist)
+      .eq("fan_id", claims.sub)
+      .eq("kind", "capture")
+      .eq("dedupe_key", `capture:${claims.actionId}`)
+      .maybeSingle();
+    if (error) throw new Error("database_unavailable");
+    if (job?.payload?.rewardId !== wallpaperPackId)
+      throw new Error("unauthorized");
+    return { links: await signWallpaperPack() };
+  }
   return {
     links: [
       { title: "Acción wallpaper", url: await signedFile("lead-magnet") },

@@ -24,13 +24,15 @@ import {
   type OutgoingEmail,
 } from "./resend.ts";
 import { uuid } from "../../shared/validation.ts";
+import { wallpaperPackId } from "../../shared/contracts.ts";
+import { signWallpaperPack } from "./rewards.ts";
 
 interface Dependencies {
   store: EmailStore;
   get: (name: string) => string | undefined;
   now: () => number;
   sign: typeof token;
-  rewardReady: () => Promise<unknown>;
+  rewardReady: (pack: boolean) => Promise<unknown>;
   send: typeof sendResendEmail;
 }
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
@@ -39,7 +41,8 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     get: (name) => Deno.env.get(name),
     now: Date.now,
     sign: token,
-    rewardReady: () => signedFile("lead-magnet"),
+    rewardReady: (pack) =>
+      pack ? signWallpaperPack() : signedFile("lead-magnet"),
     send: sendResendEmail,
     ...overrides,
   };
@@ -85,6 +88,8 @@ async function render(
     };
   const es = language === "es",
     links: string[] = [];
+  const wallpaperPack =
+    job.kind === "capture" && job.payload.rewardId === wallpaperPackId;
   // Fresh links use this database lease's issuance time, never queue creation time.
   const issued = Math.floor((Date.parse(job.lease_until) - 120_000) / 1000);
   if (!Number.isFinite(issued) || issued > deps.now() / 1000 + 30)
@@ -101,18 +106,25 @@ async function render(
       scope === "confirm"
         ? Math.floor(Date.parse(job.created_at) / 1000)
         : issued;
+    const requestBound =
+      scope === "confirm" || (scope === "reward" && wallpaperPack);
     const requestId =
-      scope === "confirm" && job.dedupe_key.startsWith("capture:")
+      requestBound && job.dedupe_key.startsWith("capture:")
         ? job.dedupe_key.slice("capture:".length)
         : undefined;
-    if (scope === "confirm" && !uuid(requestId))
-      throw new EmailProviderError("invalid_confirmation_request", false);
+    if (requestBound && !uuid(requestId))
+      throw new EmailProviderError(
+        scope === "confirm"
+          ? "invalid_confirmation_request"
+          : "invalid_reward_request",
+        false,
+      );
     earliestExpiry = Math.min(earliestExpiry, linkIssued + ttl);
     return `${config.origin}/#${scope}=${encodeURIComponent(await deps.sign(scope, sub, ttl, linkIssued, requestId))}`;
   };
   if (job.kind === "capture" || job.kind === "transactional_test") {
     if (job.payload.magnet === true || job.kind === "transactional_test") {
-      await deps.rewardReady();
+      await deps.rewardReady(wallpaperPack);
       links.push(
         `${es ? "Descarga solicitada" : "Requested download"}: ${await link("reward", job.fan_id || `owner-test:${job.id}`)}`,
       );
@@ -151,6 +163,7 @@ async function render(
   const content = template(job.kind, language, links, config.support, {
     magnet: job.payload.magnet === true,
     confirm: job.payload.confirm === true,
+    wallpaperPack,
   });
   return {
     body: {

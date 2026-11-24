@@ -21,6 +21,13 @@ export interface MusicRelease {
   title: string;
   artistCredit?: string;
   releaseDate: string;
+  publicationStatus?: "upcoming" | "released";
+  publishAt?: string;
+  distributionStatus?: "approved";
+  upc?: string;
+  catalogNumber?: string;
+  campaignId?: string;
+  preserveDisplayCase?: boolean;
   coverArt: string;
   theme?: ReleaseTheme;
   previewUrl?: string;

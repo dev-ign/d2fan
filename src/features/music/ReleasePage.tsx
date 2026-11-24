@@ -15,17 +15,25 @@ import { localContentRepository } from "../../repositories/localContentRepositor
 import { resolveReleaseTheme } from "../../domain/releaseTheme";
 import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
 import { FanCaptureForm } from "../fan-capture/FanCaptureForm";
+import { WallpaperPreview } from "../fan-capture/WallpaperPreview";
+import { runtime } from "../../config/runtime";
 import { useAudio } from "../../hooks/useAudio";
 import { useSectionMotion } from "../../hooks/useSectionMotion";
 import { artist } from "../../data/content";
+import {
+  formatReleaseDate,
+  resolveReleasePublication,
+} from "../../data/releaseMetadata";
 import { StreamingLinks } from "./StreamingLinks";
+import { ReleaseShare } from "./ReleaseShare";
 
-export function ReleasePage() {
+export function ReleasePage({ serverTime }: { serverTime?: number }) {
   const { t, locale } = useLocale();
   const { slug } = useParams();
-  const [release, setRelease] = useState<MusicRelease | null | undefined>(
+  const [entry, setRelease] = useState<MusicRelease | null | undefined>(
     undefined,
   );
+  const release = entry && resolveReleasePublication(entry, serverTime);
   const audio = useAudio();
   const scope = useSectionMotion(release?.id ?? false);
   useEffect(() => {
@@ -60,6 +68,12 @@ export function ReleasePage() {
   const playing = current && audio.status === "playing";
   const loading = current && audio.status === "loading";
   const failed = current && audio.status === "error";
+  const upcoming = release.publicationStatus === "upcoming";
+  const releaseLabel = upcoming
+    ? t.release.upcoming
+    : release.publicationStatus === "released"
+      ? t.release.outNow
+      : t.common.single;
   return (
     <main
       ref={scope}
@@ -79,23 +93,29 @@ export function ReleasePage() {
             />
           </div>
           <div className="release-page-copy reveal">
-            <p className="eyebrow release-artist">
+            <p
+              className="eyebrow release-artist"
+              data-preserve-display-case={release.preserveDisplayCase}
+            >
               {release.artistCredit ?? artist.displayName}
             </p>
-            <h1 id="release-title" className="display-heading">
+            <h1
+              id="release-title"
+              className="display-heading"
+              data-preserve-display-case={release.preserveDisplayCase}
+            >
               {release.title}
             </h1>
             <p className="release-date">
-              {t.common.single} ·{" "}
-              {new Date(`${release.releaseDate}T12:00:00`).toLocaleString(
-                locale === "es" ? "es" : "en-US",
-                { month: "long", day: "numeric", year: "numeric" },
-              )}
+              {releaseLabel} ·{" "}
+              <time dateTime={release.releaseDate}>
+                {formatReleaseDate(release.releaseDate, locale)}
+              </time>
             </p>
             <div className="release-listening">
               <div className="release-page-actions">
                 <StreamingLinks release={release} />
-                {release.previewUrl && (
+                {!upcoming && release.previewUrl && (
                   <button
                     className="preview-action"
                     type="button"
@@ -128,8 +148,20 @@ export function ReleasePage() {
                   {audioError(audio.error, t)}
                 </p>
               )}
+              {release.campaignId && (
+                <ReleaseShare
+                  key={release.id}
+                  slug={release.slug}
+                  title={release.title}
+                  credit={release.artistCredit ?? artist.displayName}
+                  campaignId={release.campaignId}
+                />
+              )}
               <Link className="fan-jump" to="#release-signup">
-                {t.stay.rewardCta} <ArrowDown size={14} aria-hidden="true" />
+                {runtime.laCulturaWallpapers
+                  ? t.wallpapers.offer
+                  : t.stay.rewardCta}{" "}
+                <ArrowDown size={14} aria-hidden="true" />
               </Link>
             </div>
             <section
@@ -142,10 +174,22 @@ export function ReleasePage() {
                 <h2 id="release-capture-heading">
                   {t.release.stay} <em>{t.release.close}</em>
                 </h2>
-                <p>{t.stay.releaseIntro}</p>
+                <p>
+                  {runtime.laCulturaWallpapers
+                    ? t.wallpapers.releaseIntro
+                    : release.campaignId
+                      ? t.stay.campaignIntro
+                      : t.stay.releaseIntro}
+                </p>
               </div>
+              {runtime.laCulturaWallpapers && <WallpaperPreview />}
               <FanCaptureForm key={release.id} releaseSlug={release.slug} />
             </section>
+            {release.campaignId && (
+              <Link className="release-link release-discovery" to="/#music">
+                {t.release.explore}
+              </Link>
+            )}
           </div>
         </div>
       </div>

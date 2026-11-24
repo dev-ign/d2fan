@@ -603,6 +603,72 @@ console.log(
 console.log(
   "PASS: migrations, identity/consent, price mismatch rollback, webhook replay, tip isolation, terminal full refunds, duplicate/stale refunds, multiple qualifying purchases, refund-before-purchase retry, anonymous/authenticated negative access.",
 );
+const rewardSignature =
+  "public.capture_fan_with_reward(text,uuid,text,text,jsonb,jsonb,boolean,text,text)";
+for (const role of ["anon", "authenticated", "service_role"]) {
+  const { rows } = await db.query(
+    "select has_function_privilege($1,$2,'execute') as allowed",
+    [role, rewardSignature],
+  );
+  assert.equal(rows[0].allowed, role === "service_role");
+}
+const packRequest = crypto.randomUUID();
+const touches = { release: "sayyouluvme", utm_campaign: "sayyouluvme_2026" };
+const packCapture = (id, fingerprint = "wallpaper-test") =>
+  db.query("select capture_fan_with_reward($1,$2,$3,$4,$5,$6,$7,$8,$9) as id", [
+    artist,
+    id,
+    "pack@example.com",
+    "es",
+    touches,
+    touches,
+    false,
+    fingerprint,
+    "la_cultura_wallpapers",
+  ]);
+const packFan = (await packCapture(packRequest)).rows[0].id;
+const savedPack = (await captureSnapshot()).rows;
+assert.equal((await packCapture(packRequest)).rows[0].id, packFan);
+await assert.rejects(packCapture(packRequest, "different"), /request_conflict/);
+await assert.rejects(packCapture(request, "fingerprint"), /request_conflict/);
+assert.deepEqual((await captureSnapshot()).rows, savedPack);
+const packJob = (
+  await db.query(
+    "select payload from delivery_jobs where fan_id=$1 and dedupe_key=$2",
+    [packFan, `capture:${packRequest}`],
+  )
+).rows[0].payload;
+assert.deepEqual(packJob, {
+  confirm: false,
+  magnet: true,
+  rewardId: "la_cultura_wallpapers",
+});
+const event = (
+  await db.query(
+    "select release_slug,metadata from fan_events where fan_id=$1 and event_id=$2",
+    [packFan, `capture:${packRequest}`],
+  )
+).rows[0];
+assert.deepEqual(event, {
+  release_slug: "sayyouluvme",
+  metadata: {
+    rewardId: "la_cultura_wallpapers",
+    firstTouch: touches,
+    lastTouch: touches,
+  },
+});
+assert.equal(
+  (
+    await db.query(
+      "select count(*)::int as n from consent_records where fan_id=$1",
+      [packFan],
+    )
+  ).rows[0].n,
+  0,
+);
+console.log(
+  "PASS: La Cultura reward-only capture, scoped attribution, replay, legacy conflict and grants.",
+);
 await db.close();
 const emailDb = new PGlite();
 await emailDb.exec(

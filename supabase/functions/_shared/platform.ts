@@ -51,10 +51,10 @@ export async function rpc<T>(
 ): Promise<T> {
   const { data, error } = await db().rpc(name, args);
   if (error) {
-    // capture_fan raises this fixed exception before any writes on a conflicting
-    // replay. P0001 alone is generic; never translate other RPCs or messages.
+    // The capture RPCs raise this fixed exception before writing on a
+    // conflicting replay. P0001 alone is generic.
     if (
-      name === "capture_fan" &&
+      (name === "capture_fan" || name === "capture_fan_with_reward") &&
       error.code === "P0001" &&
       error.message === "request_conflict"
     )
@@ -124,6 +124,11 @@ export async function signedFile(slug: string) {
     !(paths as Record<string, string>)[slug].trim()
   )
     throw new FileSigningError("missing_mapping", "content_not_configured");
+  return signPrivateObject((paths as Record<string, string>)[slug]);
+}
+
+// Callers must supply a private object path from server configuration or an allowlist.
+export async function signPrivateObject(path: string) {
   let client: ReturnType<typeof db>;
   try {
     client = db();
@@ -139,7 +144,7 @@ export async function signedFile(slug: string) {
   try {
     result = await client.storage
       .from("vault-private")
-      .createSignedUrl((paths as Record<string, string>)[slug], 300, {
+      .createSignedUrl(path, 300, {
         download: true,
       });
   } catch (error) {

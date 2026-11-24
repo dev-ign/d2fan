@@ -26,11 +26,21 @@ import { StayClose } from "../features/stay-close/StayClose";
 import { localContentRepository } from "../repositories/localContentRepository";
 import { useSectionMotion } from "../hooks/useSectionMotion";
 import { useRouteScroll } from "../hooks/useRouteScroll";
+import { useReleaseClock } from "../hooks/useReleaseClock";
 import type { Artist, MusicRelease, VaultItem } from "../domain/types";
 import { releases } from "../data/content";
-import { getReleaseMetadata } from "../data/releaseMetadata";
+import {
+  getReleaseMetadata,
+  resolveReleasePublication,
+} from "../data/releaseMetadata";
 
-function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
+function HomePage({
+  onSupport,
+  serverTime,
+}: {
+  onSupport: (item?: VaultItem) => void;
+  serverTime?: number;
+}) {
   const [content, setContent] = useState<{
     artist: Artist;
     releases: MusicRelease[];
@@ -50,24 +60,29 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
       live = false;
     };
   }, []);
+  const publishedCatalog = content?.releases.map((release) =>
+    resolveReleasePublication(release, serverTime),
+  );
   return (
     <main
       ref={scope}
       className={content ? "home-experience" : "home-loading"}
       aria-busy={!content}
     >
-      {content && (
+      {content && publishedCatalog && (
         <>
           <Hero
             artist={content.artist}
             featured={
-              content.releases.find(
+              publishedCatalog.find(
                 (release) => release.id === content.artist.featuredReleaseId,
-              ) ?? content.releases[0]
+              ) ?? publishedCatalog[0]
             }
           />
           <MusicSection
-            releases={content.releases}
+            releases={publishedCatalog.filter(
+              (release) => release.publicationStatus !== "upcoming",
+            )}
             featuredReleaseId={content.artist.featuredReleaseId}
           />
           <VaultSection items={content.vault} onSupport={onSupport} />
@@ -88,11 +103,16 @@ function AppShell() {
   const privacyRoute = Boolean(useMatch("/privacy"));
   useRouteScroll();
   const { t, locale } = useLocale();
-  const release = releases.find(
-    (item) => item.slug === releaseRoute?.params.slug,
-  );
+  const serverTime = useReleaseClock();
+  const releaseSlug = releaseRoute?.params.slug;
+  const release = releases.find((item) => item.slug === releaseSlug);
   useLayoutEffect(() => {
-    const metadata = release && getReleaseMetadata(release, locale);
+    const metadata =
+      release &&
+      getReleaseMetadata(
+        resolveReleasePublication(release, serverTime),
+        locale,
+      );
     const { title, description } =
       metadata ?? (privacyRoute ? t.privacy : t.meta);
     document.title = title;
@@ -110,7 +130,7 @@ function AppShell() {
       }
       document.head.append(node);
     }
-  }, [release, locale, privacyRoute, t.meta, t.privacy]);
+  }, [release, serverTime, locale, privacyRoute, t.meta, t.privacy]);
   useEffect(() => {
     attribution();
     if (window.location.search)
@@ -135,10 +155,16 @@ function AppShell() {
         <Route
           path="/"
           element={
-            <HomePage onSupport={(item) => setSupportItem(item ?? "tip")} />
+            <HomePage
+              serverTime={serverTime}
+              onSupport={(item) => setSupportItem(item ?? "tip")}
+            />
           }
         />
-        <Route path="/music/:slug" element={<ReleasePage />} />
+        <Route
+          path="/music/:slug"
+          element={<ReleasePage serverTime={serverTime} />}
+        />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route
           path="*"

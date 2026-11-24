@@ -6,6 +6,7 @@ import { Dialog } from "../../components/Dialog";
 import { BiographyGallery } from "./BiographyGallery";
 import { useLocale, text } from "../../hooks/useLocale";
 import { HeroVideo } from "./HeroVideo";
+import { runtime } from "../../config/runtime";
 
 export function Hero({
   artist,
@@ -16,6 +17,7 @@ export function Hero({
 }) {
   const [bioOpen, setBioOpen] = useState(false);
   const { t } = useLocale();
+  const upcoming = featured.publicationStatus === "upcoming";
   return (
     <>
       <section className="hero" id="top" aria-labelledby="hero-title">
@@ -38,19 +40,28 @@ export function Hero({
               <Ellipsis size={22} aria-hidden="true" />
             </button>
             <Link className="fan-jump" to="/#stay-close">
-              {t.stay.heroCta} <ArrowDown size={14} aria-hidden="true" />
+              {runtime.laCulturaWallpapers ? t.wallpapers.join : t.stay.heroCta}{" "}
+              <ArrowDown size={14} aria-hidden="true" />
             </Link>
           </div>
         </div>
         <Link
           className="featured-card"
           to={`/music/${featured.slug}`}
-          aria-label={text(t.hero.latestLabel, { title: featured.title })}
+          aria-label={text(
+            upcoming ? t.hero.upcomingLabel : t.hero.latestLabel,
+            {
+              title: featured.title,
+            },
+          )}
         >
           <img src={featured.coverArt} alt="" width="64" height="64" />
           <span>
-            <small>{t.hero.latest}</small>
+            <small>{upcoming ? t.hero.upcoming : t.hero.latest}</small>
             <strong>{featured.title}</strong>
+            {featured.artistCredit && (
+              <span className="featured-credit">{featured.artistCredit}</span>
+            )}
           </span>
           <img
             className="featured-arrow"

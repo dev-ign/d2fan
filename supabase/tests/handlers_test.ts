@@ -4,6 +4,7 @@ import {
   checkoutStatus,
   redeemVault,
   recoverAccess,
+  deliverLeadMagnet,
 } from "../functions/_shared/handlers.ts";
 import { token, endpoint, rpc } from "../functions/_shared/platform.ts";
 import {
@@ -38,6 +39,122 @@ async function rejects(fn: () => Promise<unknown>, message: string) {
   }
   throw new Error("expected rejection");
 }
+Deno.test(
+  "La Cultura signs both objects for its captured request and preserves legacy reward links",
+  async () => {
+    const previous = Deno.env.get("PRIVATE_FILE_PATHS");
+    const original = fetch;
+    const fanId = crypto.randomUUID(),
+      requestId = crypto.randomUUID();
+    const paths: string[] = [];
+    let jobReward = "la_cultura_wallpapers",
+      desktopMissing = false;
+    Deno.env.set(
+      "PRIVATE_FILE_PATHS",
+      JSON.stringify({
+        "lead-magnet": "legacy.jpg",
+      }),
+    );
+    globalThis.fetch = (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/rpc/check_rate"))
+        return Promise.resolve(Response.json(true));
+      if (url.pathname.endsWith("/rpc/capture_fan_with_reward")) {
+        const payload = JSON.parse(String(init?.body));
+        assert(
+          payload.p_reward_id === "la_cultura_wallpapers" &&
+            payload.p_opt_in === false,
+        );
+        return Promise.resolve(Response.json(fanId));
+      }
+      if (url.pathname.endsWith("/delivery_jobs")) {
+        assert(url.searchParams.get("fan_id") === `eq.${fanId}`);
+        assert(
+          url.searchParams.get("dedupe_key") === `eq.capture:${requestId}`,
+        );
+        return Promise.resolve(
+          Response.json({ payload: { rewardId: jobReward } }),
+        );
+      }
+      if (url.pathname.includes("/storage/v1/object/sign/")) {
+        const asset = url.pathname.split("/").at(-1)!;
+        paths.push(url.pathname);
+        assert(JSON.parse(String(init?.body)).expiresIn === 300);
+        if (asset === "la-cultura-desktop-3840x2160.jpg" && desktopMissing)
+          return Promise.resolve(
+            Response.json({ message: "Object not found" }, { status: 400 }),
+          );
+        return Promise.resolve(
+          Response.json({ signedURL: `/object/sign/${asset}` }),
+        );
+      }
+      throw new Error("unexpected fixture request");
+    };
+    const req = new Request("https://preview.example.com");
+    try {
+      const body = {
+        requestId,
+        email: "fan@example.com",
+        language: "en",
+        source: "stay_close",
+        emailMarketing: false,
+        analyticsConsent: false,
+        rewardId: "la_cultura_wallpapers",
+      };
+      await rejects(
+        () => captureFan(req, { ...body, source: "support_modal" }),
+        "invalid_request",
+      );
+      const result = await captureFan(req, body);
+      assert(!result.magnetUrl && result.rewardId === "la_cultura_wallpapers");
+      assert(
+        result.wallpaperLinks?.map((link) => link.device).join(",") ===
+          "mobile,desktop",
+      );
+      for (const file of [
+        "la-cultura-mobile-1206x2622.jpg",
+        "la-cultura-desktop-3840x2160.jpg",
+      ]) {
+        assert(
+          paths.includes(
+            `/storage/v1/object/sign/vault-private/rewards/la-cultura/${file}`,
+          ),
+        );
+      }
+      desktopMissing = true;
+      assert(!(await captureFan(req, body)).wallpaperLinks);
+      desktopMissing = false;
+
+      const legacy = await deliverLeadMagnet(req, {
+        token: await token("reward", fanId, 300),
+      });
+      assert(legacy.links[0].url.includes("legacy.jpg"));
+      const packToken = await token("reward", fanId, 300, undefined, requestId);
+      const redeemed = await deliverLeadMagnet(req, { token: packToken });
+      assert(redeemed.links.length === 2);
+      jobReward = "";
+      const beforeDenials = paths.length;
+      await rejects(
+        () => deliverLeadMagnet(req, { token: packToken }),
+        "unauthorized",
+      );
+      const expired = await token("reward", fanId, -1, undefined, requestId);
+      await rejects(
+        () => deliverLeadMagnet(req, { token: expired }),
+        "unauthorized",
+      );
+      await rejects(
+        () => deliverLeadMagnet(req, { token: "unsigned" }),
+        "unauthorized",
+      );
+      assert(paths.length === beforeDenials);
+    } finally {
+      globalThis.fetch = original;
+      if (previous === undefined) Deno.env.delete("PRIVATE_FILE_PATHS");
+      else Deno.env.set("PRIVATE_FILE_PATHS", previous);
+    }
+  },
+);
 Deno.test(
   "Stage A checkout denies direct calls before any network or writes",
   async () => {

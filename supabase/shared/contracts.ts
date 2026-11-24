@@ -1,4 +1,10 @@
 export type Language = "en" | "es";
+export const wallpaperPackId = "la_cultura_wallpapers";
+export interface RewardDownload {
+  title: string;
+  url: string;
+  device?: "mobile" | "desktop";
+}
 export type ServiceResult<T> =
   | { success: true; data: T }
   | {
@@ -27,6 +33,7 @@ export interface CaptureRequest {
   analyticsConsent: boolean;
   firstTouch: Attribution;
   lastTouch: Attribution;
+  rewardId?: typeof wallpaperPackId;
 }
 export interface CaptureResponse {
   measurementToken?: string;
@@ -35,6 +42,8 @@ export interface CaptureResponse {
   // not_configured remains readable while older capture functions are deployed.
   delivery: EmailDeliveryStatus | "not_configured";
   magnetUrl?: string;
+  rewardId?: typeof wallpaperPackId;
+  wallpaperLinks?: RewardDownload[];
 }
 export type EmailDeliveryStatus =
   | "disabled"
@@ -98,4 +107,5 @@ export type AnalyticsEvent =
   | "DSPClick"
   | "MusicPreviewStarted"
   | "FanSignupViewed"
-  | "FanSignupStarted";
+  | "FanSignupStarted"
+  | "RewardDownloadClicked";

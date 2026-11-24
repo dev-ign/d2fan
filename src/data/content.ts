@@ -6,7 +6,7 @@ export const artist: Artist = {
   slug: "jona-ferreira",
   displayName: "Jona Ferreira",
   heroImage: "/assets/raw-hero-1.webp",
-  featuredReleaseId: "shorty",
+  featuredReleaseId: "sayyouluvme",
   biography: {
     short:
       "Jona Ferreira is a Dominican-American artist and songwriter born and raised in Boston, creating music for every mood.",
@@ -18,6 +18,23 @@ const apple = (album: string, track: string) =>
   `https://music.apple.com/us/album/${album}?i=${track}`;
 
 export const releases: MusicRelease[] = [
+  {
+    id: "sayyouluvme",
+    artistId: artist.id,
+    slug: "sayyouluvme",
+    title: "SayYouLuvMe",
+    artistCredit: "Jona Ferreira & SBFaraon",
+    releaseDate: "2026-11-27",
+    publicationStatus: "upcoming",
+    publishAt: "2026-11-27T05:00:00Z",
+    distributionStatus: "approved",
+    upc: "708208533336",
+    catalogNumber: "CAT2529872",
+    campaignId: "sayyouluvme_2026",
+    preserveDisplayCase: true,
+    coverArt: "/assets/sayyouloveme-cover2.jpg",
+    streamingLinks: {},
+  },
   {
     id: "shorty",
     artistId: artist.id,

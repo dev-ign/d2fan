@@ -1,6 +1,7 @@
 import catalog from "../../supabase/shared/catalog.json" with { type: "json" };
 export { catalog };
 export const runtime = {
+  laCulturaWallpapers: import.meta.env.VITE_LA_CULTURA_WALLPAPERS === "true",
   supportEnabled: import.meta.env.VITE_SUPPORT_ENABLED === "true",
   commerceEnabled: import.meta.env.VITE_COMMERCE_ENABLED === "true",
   paymentSupportEmail: import.meta.env.VITE_PAYMENT_SUPPORT_EMAIL?.trim() ?? "",

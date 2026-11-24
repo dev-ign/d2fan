@@ -46,15 +46,17 @@ test("Spanish first, neutral globe, accessible selection, persistence and metada
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.locator(".featured-card").click();
-  await expect(
-    page.getByRole("link", { name: "Listen to Shorty on Spotify" }),
-  ).toBeVisible();
-  await expect(page.locator(".preview-action")).toBeVisible();
+  await expect(page.locator("#release-title")).toHaveText("SayYouLuvMe");
+  await expect(page.locator(".release-artist")).toHaveText(
+    "Jona Ferreira & SBFaraon",
+  );
   await switchLocale(page, "es");
   await expect(
-    page.getByRole("link", { name: "Escucha Shorty en Spotify" }),
+    page.getByRole("button", {
+      name: "Dedícale esta canción a alguien especial",
+    }),
   ).toBeVisible();
-  await expect(page).toHaveURL("/music/shorty");
+  await expect(page).toHaveURL("/music/sayyouluvme");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await trigger.click();
@@ -294,6 +296,7 @@ test("both languages fit all nine widths and simplified controls retain accessib
         await expect(page.locator("#music")).not.toContainText(
           "Preview the full discography",
         );
+        await page.getByRole("button", { name: "Shorty", exact: true }).click();
         await page
           .getByRole("button", {
             name: locale === "es" ? "Escuchar en" : "Listen on",

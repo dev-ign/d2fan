@@ -36,6 +36,8 @@ export const english = {
     readBio: "Read artist biography",
     latest: "LATEST RELEASE",
     latestLabel: "Latest release: {title}",
+    upcoming: "UPCOMING RELEASE",
+    upcomingLabel: "Upcoming release: {title}",
     about: "About Jona Ferreira",
     explore: "EXPLORE THE MUSIC",
     socials: "Find Jona online",
@@ -76,7 +78,7 @@ export const english = {
     pause: "Pause preview",
     play: "Play preview",
     position: "Playback position",
-    metadata: "Jona Ferreira · 30-second preview",
+    metadata: "{artist} · 30-second preview",
     empty: "Choose a release below to hear a preview.",
     failed: "This preview could not be played.",
     unavailable: "A preview is not available for this release.",
@@ -89,6 +91,13 @@ export const english = {
     back: "Back to music",
     listen: "Listen to this release",
     listenOn: "Listen to {title} on {service}",
+    upcoming: "Upcoming single",
+    outNow: "Out now",
+    share: "Send this song to someone special",
+    shareLink: "Release link",
+    shareCopied: "Link copied.",
+    shareManually: "Copy this link to share the release.",
+    explore: "Explore more music",
     stay: "Stay",
     close: "close.",
   },
@@ -136,8 +145,40 @@ export const english = {
       "Get closer to Jona Ferreira’s music. Take home exclusive artwork and choose whether to hear about new releases by email.",
     releaseIntro:
       "Take a piece of Acción with you. Get the exclusive wallpaper and choose whether to get release updates from Jona.",
+    campaignIntro:
+      "Want to hear what Jona releases next? Get the free Acción wallpaper and choose whether to receive music updates by email.",
     incentive: "Free, exclusive Acción wallpaper.",
     footer: "Jona Ferreira — independent music, direct to you.",
+  },
+  wallpapers: {
+    join: "Join La Cultura",
+    intro:
+      "Be part of La Cultura. Connect with me, discover new music, and get exclusive content.",
+    offer: "Get the free La Cultura wallpapers",
+    releaseIntro:
+      "Want to hear what's next from Jona? Get the free La Cultura wallpapers and choose whether to receive updates by email.",
+    incentive: "Exclusive La Cultura wallpapers, free.",
+    description: "For your phone and computer.",
+    desktopPreview:
+      "Desktop wallpaper preview with La Cultura graffiti and palm tree",
+    mobilePreview: "Mobile wallpaper preview with a black palm tree",
+    email: "Your email address",
+    disclosure:
+      "We use your email to deliver the wallpapers. The checkbox is optional. If you select it, confirm music updates by email.",
+    requested: "We saved your wallpaper request.",
+    captureSaved: "We saved your request for the La Cultura wallpapers.",
+    ready: "Your wallpapers are ready!",
+    readyMessage:
+      "Thanks for being part of La Cultura. Download your wallpapers below.",
+    unavailable:
+      "The La Cultura wallpapers are temporarily unavailable. Try again later.",
+    emailQueued:
+      "Your wallpaper email is queued. Check your inbox and spam folder in a few minutes.",
+    emailAccepted:
+      "Check your inbox and spam folder for the La Cultura download link.",
+    rewardOnly: "You requested the wallpapers only.",
+    mobile: "Download mobile wallpaper",
+    desktop: "Download desktop wallpaper",
   },
   forms: {
     emailLabel: "YOUR EMAIL",
@@ -181,7 +222,7 @@ export const english = {
       "When checkout is available, Stripe handles payment details and collects your email for guest contributions. We keep the transaction references, amount and status needed to confirm and reconcile contributions. For Vault purchases, we keep the purchase, contact and access records needed to deliver downloads and help you recover access. Supabase stores site records and hosts private files. The site verifies access before issuing temporary links to those files.",
     measurementTitle: "Browser settings and measurement",
     measurement:
-      "The site remembers your language and measurement choice in your browser. If you allow campaign measurement in the footer, the site can share activity with Meta, including page visits, preview starts, streaming link clicks, signup form views and starts, and campaign conversions. These events can include the release, page placement and site language. You can turn measurement off there at any time. Music links take you to other services, whose privacy policies apply on their sites.",
+      "The site remembers your language and measurement choice in your browser. If you allow campaign measurement in the footer, the site can share activity with Meta, including page visits, preview starts, streaming link clicks, signup form views and starts, wallpaper download clicks, and campaign conversions. These events can include the release, wallpaper type, page placement and site language. You can turn measurement off there at any time. Music links take you to other services, whose privacy policies apply on their sites.",
     retentionTitle: "Retention and your choices",
     retention:
       "We keep signup, consent and access records as needed to provide the services you request, honor unsubscribes, account for purchases and meet legal obligations. To request access, correction or deletion, reply to a site email or contact Jona Ferreira through the artist’s official Instagram account. We may verify that you control the email address before acting on a request.",
@@ -301,6 +342,8 @@ export const spanish: SiteMessages = {
     readBio: "Leer biografía del artista",
     latest: "ÚLTIMO LANZAMIENTO",
     latestLabel: "Último lanzamiento: {title}",
+    upcoming: "PRÓXIMO LANZAMIENTO",
+    upcomingLabel: "Próximo lanzamiento: {title}",
     about: "Sobre Jona Ferreira",
     explore: "EXPLORA LA MÚSICA",
     socials: "Encuentra a Jona en redes",
@@ -341,7 +384,7 @@ export const spanish: SiteMessages = {
     pause: "Pausar adelanto",
     play: "Reproducir adelanto",
     position: "Posición de reproducción",
-    metadata: "Jona Ferreira · adelanto de 30 segundos",
+    metadata: "{artist} · adelanto de 30 segundos",
     empty: "Elige un lanzamiento para escuchar un adelanto.",
     failed: "No se pudo reproducir este adelanto.",
     unavailable: "Este lanzamiento no tiene un adelanto disponible.",
@@ -355,6 +398,13 @@ export const spanish: SiteMessages = {
     back: "Volver a la música",
     listen: "Escucha este lanzamiento",
     listenOn: "Escucha {title} en {service}",
+    upcoming: "Próximo sencillo",
+    outNow: "Ya disponible",
+    share: "Dedícale esta canción a alguien especial",
+    shareLink: "Enlace del lanzamiento",
+    shareCopied: "Enlace copiado.",
+    shareManually: "Copia este enlace para compartir el lanzamiento.",
+    explore: "Explora más música",
     stay: "Mantente",
     close: "cerca.",
   },
@@ -402,8 +452,40 @@ export const spanish: SiteMessages = {
       "Acércate a la música de Jona Ferreira. Llévate arte exclusivo y elige si quieres enterarte por correo de sus próximos lanzamientos.",
     releaseIntro:
       "Llévate un pedazo de Acción. Consigue el wallpaper exclusivo y elige si quieres recibir novedades de Jona por correo.",
+    campaignIntro:
+      "¿Quieres enterarte de lo próximo de Jona? Llévate el wallpaper gratis de Acción y elige si quieres recibir novedades por correo.",
     incentive: "Wallpaper exclusivo de Acción, gratis.",
     footer: "Jona Ferreira — música independiente, directa para ti.",
+  },
+  wallpapers: {
+    join: "Únete a La Cultura",
+    intro:
+      "Sé parte de La Cultura. Conecta conmigo, descubre nueva música y recibe contenido exclusivo.",
+    offer: "Consigue los wallpapers gratis de La Cultura",
+    releaseIntro:
+      "¿Quieres enterarte de lo próximo de Jona? Llévate los wallpapers gratis de La Cultura y elige si quieres recibir novedades por correo.",
+    incentive: "Wallpapers exclusivos de La Cultura, gratis.",
+    description: "Para tu celular y computadora.",
+    desktopPreview:
+      "Vista previa para computadora con el grafiti de La Cultura y una palmera",
+    mobilePreview: "Vista previa para celular con una palmera negra",
+    email: "Tu correo electrónico",
+    disclosure:
+      "Usamos tu correo para entregarte los wallpapers. Marcar la casilla es opcional. Si la marcas, confirma las novedades por correo.",
+    requested: "Solicitud de wallpapers guardada.",
+    captureSaved: "Guardamos tu solicitud de los wallpapers de La Cultura.",
+    ready: "¡Tus wallpapers están listos!",
+    readyMessage:
+      "Gracias por ser parte de La Cultura. Descarga tus wallpapers aquí abajo.",
+    unavailable:
+      "Los wallpapers de La Cultura no están disponibles por el momento. Inténtalo más tarde.",
+    emailQueued:
+      "El correo con los wallpapers está en cola. Revisa tu bandeja de entrada y correo no deseado en unos minutos.",
+    emailAccepted:
+      "Revisa tu bandeja de entrada y correo no deseado para encontrar el enlace de La Cultura.",
+    rewardOnly: "Solo solicitaste los wallpapers.",
+    mobile: "Descargar wallpaper para celular",
+    desktop: "Descargar wallpaper para computadora",
   },
   forms: {
     emailLabel: "TU CORREO",
@@ -447,7 +529,7 @@ export const spanish: SiteMessages = {
       "Cuando los pagos están disponibles, Stripe gestiona los datos de pago y recopila tu correo para los aportes como invitado. Guardamos las referencias, el importe y el estado de la transacción para confirmar y conciliar los aportes. Para las compras en Vault, guardamos los datos de compra, contacto y acceso necesarios para entregar descargas y ayudarte a recuperar el acceso. Supabase guarda los registros del sitio y aloja archivos privados. El sitio verifica tu acceso antes de generar enlaces temporales a esos archivos.",
     measurementTitle: "Preferencias del navegador y medición",
     measurement:
-      "El sitio recuerda tu idioma y tu preferencia de medición en el navegador. Si permites la medición de campañas en el pie de página, el sitio puede compartir actividad con Meta, como visitas, inicios de adelantos, clics en enlaces de música, vistas e inicios del formulario de registro y conversiones de campañas. Los eventos pueden incluir el lanzamiento, la ubicación del formulario o del control en el sitio y el idioma. Puedes desactivarla allí en cualquier momento. Los enlaces de música te llevan a otros servicios, que aplican sus propias políticas de privacidad.",
+      "El sitio recuerda tu idioma y tu preferencia de medición en el navegador. Si permites la medición de campañas en el pie de página, el sitio puede compartir actividad con Meta, como visitas, inicios de adelantos, clics en enlaces de música, vistas e inicios del formulario de registro, clics de descarga de wallpapers y conversiones de campañas. Los eventos pueden incluir el lanzamiento, el tipo de wallpaper, la ubicación en el sitio y el idioma. Puedes desactivarla allí en cualquier momento. Los enlaces de música te llevan a otros servicios, que aplican sus propias políticas de privacidad.",
     retentionTitle: "Conservación de datos y tus opciones",
     retention:
       "Conservamos los datos de inscripción, consentimiento y acceso durante el tiempo necesario para prestar los servicios que solicitas, respetar las bajas, llevar la contabilidad de las compras y cumplir obligaciones legales. Para solicitar acceso, corrección o eliminación, responde a un correo del sitio o contacta a Jona Ferreira a través de la cuenta oficial de Instagram del artista. Es posible que verifiquemos que controlas la dirección de correo antes de tramitar tu solicitud.",

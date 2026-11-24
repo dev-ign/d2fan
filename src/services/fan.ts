@@ -5,6 +5,7 @@ import type {
   CheckoutResponse,
   CheckoutStatus,
   RecoveryResponse,
+  RewardDownload,
 } from "../../supabase/shared/contracts";
 import { api } from "./api";
 import { runtime } from "../config/runtime";
@@ -34,7 +35,7 @@ export const checkoutService = {
 };
 export const vaultService = {
   reward: (token: string) =>
-    api<{ links: { title: string; url: string }[] }>("deliver-lead-magnet", {
+    api<{ links: RewardDownload[] }>("deliver-lead-magnet", {
       token,
     }),
   redeem: (token: string) =>
