@@ -8,6 +8,7 @@ import {
   resolveReleasePublication,
 } from "./releaseMetadata";
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { GET, HEAD } from "../../api/sayyouluvme-preview";
 
 const destinationPatterns: Record<
@@ -73,6 +74,16 @@ test("SayYouLuvMe is featured with verified metadata and unavailable for listeni
     getReleaseMetadata({ ...release, publicationStatus: "released" }, "es")
       .description,
   ).toMatch(/^Escucha SayYouLuvMe/);
+});
+
+test("the SayYouLuvMe function loads as native Node ESM", () => {
+  expect(() =>
+    execFileSync(process.execPath, [
+      "--input-type=module",
+      "--eval",
+      'await import("./api/sayyouluvme-preview.ts")',
+    ]),
+  ).not.toThrow();
 });
 
 test("the SayYouLuvMe media endpoint enforces the cutoff and preserves byte ranges", async () => {

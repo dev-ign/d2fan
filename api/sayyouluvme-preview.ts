@@ -1,4 +1,4 @@
-import { releases } from "../src/data/content";
+import { releases } from "../src/data/content.ts";
 
 const publishAt = Date.parse(
   releases.find((release) => release.id === "sayyouluvme")?.publishAt ?? "",
