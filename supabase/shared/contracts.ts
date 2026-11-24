@@ -19,7 +19,9 @@ export type Attribution = Partial<
     | "utm_content"
     | "utm_term"
     | "ref"
-    | "release",
+    | "release"
+    | "campaign_id"
+    | "landing_path",
     string
   >
 >;

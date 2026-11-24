@@ -1,14 +1,28 @@
 import type { Attribution } from "../../supabase/shared/contracts";
-import { boundedAttribution } from "../../supabase/shared/validation";
+import {
+  boundedAttribution,
+  campaignParameters,
+} from "../../supabase/shared/validation";
+import { releases } from "../data/content";
 const key = "jona:attribution:v1";
 let memory:
   { first: Attribution; last: Attribution; expires: number } | undefined;
 export function attribution() {
-  const current = boundedAttribution(
-    Object.fromEntries(new URLSearchParams(location.search)),
+  const params = new URLSearchParams(location.search);
+  const tags = boundedAttribution(
+    Object.fromEntries(
+      campaignParameters.map((field) => [field, params.get(field)]),
+    ),
   );
-  const release = location.pathname.match(/^\/music\/([a-z0-9-]+)$/)?.[1];
-  if (release) current.release = release;
+  const tagged = Object.keys(tags).length > 0;
+  const path = location.pathname.replace(/\/$/, "") || "/";
+  const release = releases.find((item) => path === `/music/${item.slug}`);
+  const current: Attribution = {
+    ...tags,
+    ...(release && { release: release.slug }),
+    ...(release?.campaignId && { campaign_id: release.campaignId }),
+    ...((release || (tagged && path === "/")) && { landing_path: path }),
+  };
   try {
     const saved = JSON.parse(localStorage.getItem(key) ?? "null");
     if (
@@ -32,11 +46,13 @@ export function attribution() {
     };
   if (Object.keys(current).length) {
     if (!Object.keys(memory.first).length) memory.first = current;
-    // Reading the same release after its query was consumed must not erase
-    // that visit's campaign. A new explicit campaign still replaces last touch.
-    memory.last = Object.keys(current).some((field) => field !== "release")
-      ? current
-      : { ...memory.last, ...current };
+    // Untagged navigation can update the conversion release while keeping
+    // the most recent tagged landing and campaign intact.
+    const last = memory.last;
+    memory.last =
+      !tagged && release && campaignParameters.some((field) => last[field])
+        ? { ...last, release: release.slug }
+        : current;
   }
   try {
     localStorage.setItem(key, JSON.stringify(memory));

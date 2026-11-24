@@ -1,6 +1,6 @@
 import type { Locale } from "../app/localeContext";
 import type { MusicRelease } from "../domain/types";
-import { artist } from "./content";
+import { artist } from "./content.ts";
 
 const siteUrl = "https://jonaferreira.com";
 
