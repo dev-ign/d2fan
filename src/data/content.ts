@@ -33,6 +33,7 @@ export const releases: MusicRelease[] = [
     campaignId: "sayyouluvme_2026",
     preserveDisplayCase: true,
     coverArt: "/assets/sayyouloveme-cover2.jpg",
+    previewUrl: "/api/sayyouluvme-preview",
     streamingLinks: {},
   },
   {

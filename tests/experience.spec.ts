@@ -289,7 +289,7 @@ test("SayYouLuvMe landing shares the campaign and preserves optional signup cons
   await expect(page).toHaveURL("/#music");
 });
 
-test("SayYouLuvMe publishes at midnight Eastern on the server clock without exposing audio", async ({
+test("SayYouLuvMe reveals playback at midnight Eastern on the server clock", async ({
   page,
 }) => {
   const midnight = Date.parse("2026-11-27T05:00:00Z");
@@ -309,6 +309,9 @@ test("SayYouLuvMe publishes at midnight Eastern on the server clock without expo
     exact: true,
   });
   await expect(single).toHaveCount(0);
+  await expect(
+    catalog.getByRole("button", { name: /Play SayYouLuvMe preview/ }),
+  ).toHaveCount(0);
   await catalog
     .getByRole("button", { name: "Darte Nota", exact: true })
     .click();
@@ -323,10 +326,11 @@ test("SayYouLuvMe publishes at midnight Eastern on the server clock without expo
   await expect(catalog).toContainText("Out now");
   await expect(
     catalog.getByRole("button", { name: /Play SayYouLuvMe preview/ }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await catalog.getByRole("link", { name: "Release page" }).click();
   await expect(page.locator(".release-date")).toContainText("Out now");
-  await expect(page.locator(".preview-action, .stream-links")).toHaveCount(0);
+  await expect(page.locator(".preview-action")).toBeVisible();
+  await expect(page.locator(".stream-links")).toHaveCount(0);
 
   await page.locator(".language-trigger").click();
   await page.getByRole("menuitemradio", { name: /ES/ }).click();

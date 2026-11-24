@@ -5,17 +5,17 @@ export function WallpaperPreview() {
   return (
     <div className="wallpaper-preview">
       <img
-        src="/assets/la-cultura-desktop-preview.webp"
+        src="/assets/la-cultura-desktop-preview-blurred.webp"
         alt={t.wallpapers.desktopPreview}
-        width="576"
-        height="324"
+        width="320"
+        height="180"
         loading="lazy"
       />
       <img
-        src="/assets/la-cultura-mobile-preview.webp"
+        src="/assets/la-cultura-mobile-preview-blurred.webp"
         alt={t.wallpapers.mobilePreview}
-        width="184"
-        height="400"
+        width="115"
+        height="250"
         loading="lazy"
       />
     </div>

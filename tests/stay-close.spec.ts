@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import type { Locator } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 const output = "artifacts/qa-stay-close";
 test.beforeAll(async () => {
@@ -13,25 +14,49 @@ const saved = {
 test("La Cultura offers two signed wallpapers and keeps marketing optional", async ({
   page,
 }) => {
-  await page.route("**/src/config/runtime.ts", async (route) => {
-    const response = await route.fetch();
-    await route.fulfill({
-      response,
-      body: `${await response.text()}\nruntime.laCulturaWallpapers = true;`,
+  if (process.env.VITE_LA_CULTURA_WALLPAPERS !== "true") {
+    await page.route("**/src/config/runtime.ts", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        body: `${await response.text()}\nruntime.laCulturaWallpapers = true;`,
+      });
     });
-  });
+  }
+  const expectPreviews = async (
+    section: Locator,
+    names: { desktop: string; mobile: string },
+  ) => {
+    const previews = section.locator(".wallpaper-preview");
+    await expect(previews.getByRole("img")).toHaveCount(2);
+    for (const [device, width, height] of [
+      ["desktop", 320, 180],
+      ["mobile", 115, 250],
+    ] as const) {
+      const image = previews.getByRole("img", {
+        name: names[device],
+        exact: true,
+      });
+      await expect(image).toHaveAttribute(
+        "src",
+        `/assets/la-cultura-${device}-preview-blurred.webp`,
+      );
+      await image.scrollIntoViewIfNeeded();
+      await expect(image).toBeInViewport({ ratio: 0.99 });
+      await expect(image).toHaveJSProperty("naturalWidth", width);
+      await expect(image).toHaveJSProperty("naturalHeight", height);
+    }
+  };
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#stay-close");
   const stay = page.locator("#stay-close");
   await expect(stay.locator(".incentive")).toContainText(
     "Exclusive La Cultura wallpapers, free.",
   );
-  await expect(
-    stay.getByRole("img", { name: /desktop wallpaper preview/i }),
-  ).toHaveJSProperty("naturalWidth", 576);
-  await expect(
-    stay.getByRole("img", { name: /mobile wallpaper preview/i }),
-  ).toHaveJSProperty("naturalWidth", 184);
+  await expectPreviews(stay, {
+    desktop: "Desktop wallpaper preview with La Cultura graffiti and palm tree",
+    mobile: "Mobile wallpaper preview with a black palm tree",
+  });
   await stay.screenshot({ path: `${output}/la-cultura-home-en.png` });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -80,6 +105,11 @@ test("La Cultura offers two signed wallpapers and keeps marketing optional", asy
   await expect(signup).toContainText(
     "¿Quieres enterarte de lo próximo de Jona? Llévate los wallpapers gratis de La Cultura y elige si quieres recibir novedades por correo.",
   );
+  await expectPreviews(signup, {
+    desktop:
+      "Vista previa para computadora con el grafiti de La Cultura y una palmera",
+    mobile: "Vista previa para celular con una palmera negra",
+  });
   await expect(
     signup.getByLabel("Tu correo electrónico", { exact: true }),
   ).toBeVisible();
