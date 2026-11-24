@@ -67,7 +67,9 @@ function HomePage({ onSupport }: { onSupport: (item?: VaultItem) => void }) {
             }
           />
           <MusicSection
-            releases={content.releases}
+            releases={content.releases.filter(
+              (release) => release.publicationStatus !== "upcoming",
+            )}
             featuredReleaseId={content.artist.featuredReleaseId}
           />
           <VaultSection items={content.vault} onSupport={onSupport} />

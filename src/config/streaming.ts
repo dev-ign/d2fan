@@ -24,6 +24,7 @@ const platformDetails = {
 } satisfies Record<keyof typeof platformNames, [string, string]>;
 
 export function getStreamingLinks(release: MusicRelease) {
+  if (release.publicationStatus === "upcoming") return [];
   return streamingPlatforms.flatMap((platform) => {
     const href = release.streamingLinks[platform];
     const [origin, icon] = platformDetails[platform];

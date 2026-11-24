@@ -16,6 +16,7 @@ export function Hero({
 }) {
   const [bioOpen, setBioOpen] = useState(false);
   const { t } = useLocale();
+  const upcoming = featured.publicationStatus === "upcoming";
   return (
     <>
       <section className="hero" id="top" aria-labelledby="hero-title">
@@ -45,12 +46,20 @@ export function Hero({
         <Link
           className="featured-card"
           to={`/music/${featured.slug}`}
-          aria-label={text(t.hero.latestLabel, { title: featured.title })}
+          aria-label={text(
+            upcoming ? t.hero.upcomingLabel : t.hero.latestLabel,
+            {
+              title: featured.title,
+            },
+          )}
         >
           <img src={featured.coverArt} alt="" width="64" height="64" />
           <span>
-            <small>{t.hero.latest}</small>
+            <small>{upcoming ? t.hero.upcoming : t.hero.latest}</small>
             <strong>{featured.title}</strong>
+            {featured.artistCredit && (
+              <span className="featured-credit">{featured.artistCredit}</span>
+            )}
           </span>
           <img
             className="featured-arrow"

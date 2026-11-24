@@ -47,7 +47,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const play = useCallback(async (next: MusicRelease) => {
     const request = ++playRequestRef.current;
     const audio = audioRef.current;
-    if (!audio || !next.previewUrl) {
+    if (!audio || next.publicationStatus === "upcoming" || !next.previewUrl) {
       setError("A preview is not available for this release.");
       setStatus("error");
       return;

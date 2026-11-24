@@ -18,9 +18,7 @@ test("hero invitation, integrated socials and floating navigation fit the two pr
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator(".hero-bio-secondary")).toHaveCount(0);
     await expect(page.locator(".hero .social-strip")).toHaveCount(1);
-    await expect(page.locator(".featured-card")).toContainText(
-      "LATEST RELEASE",
-    );
+    await expect(page.locator(".featured-card")).toContainText("SayYouLuvMe");
     const heroFits = await page.evaluate(() => {
       const socials = document
         .querySelector(".hero .social-strip")!

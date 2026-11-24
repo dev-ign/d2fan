@@ -214,7 +214,7 @@ test("reduced motion is poster only and media failure retains the hero content",
     page.getByRole("button", { name: "Read artist biography" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Latest release: Shorty" }),
+    page.getByRole("link", { name: /release: SayYouLuvMe/ }),
   ).toBeVisible();
   await page.screenshot({ path: `${output}/failed-video-mobile.png` });
 });
@@ -309,11 +309,13 @@ test("fresh and refreshed home start at the hero; history and explicit anchors a
       { capture: true, once: true },
     ),
   );
-  await page.getByRole("link", { name: "Release page", exact: true }).click();
+  const release = page.getByRole("link", { name: "Release page", exact: true });
+  const releasePath = await release.getAttribute("href");
+  await release.click();
   const saved = await page.evaluate(
     () => (window as Window & { heroDeparture: number }).heroDeparture,
   );
-  await expect(page).toHaveURL(/\/music\/shorty$/);
+  await expect(page).toHaveURL(releasePath!);
   await expect(page.locator("html")).toHaveAttribute(
     "data-scroll-ready",
     "true",
@@ -327,7 +329,7 @@ test("fresh and refreshed home start at the hero; history and explicit anchors a
   );
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(saved, 0);
   await page.goForward();
-  await expect(page).toHaveURL(/\/music\/shorty$/);
+  await expect(page).toHaveURL(releasePath!);
   await page.locator(".wordmark").click();
   await expect(page).toHaveURL("/");
   await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);

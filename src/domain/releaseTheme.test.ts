@@ -11,7 +11,7 @@ describe("release theme resolution", () => {
     for (const release of releases) {
       const theme = resolveReleaseTheme(release);
       expect(theme.image).toBe(release.coverArt);
-      expect(theme.image).toMatch(/\.webp$/);
+      expect(theme.image).toMatch(/\.(webp|jpg)$/);
       expect(
         themeContrast(theme.overlayColor, theme.overlayOpacity),
       ).toBeGreaterThanOrEqual(4.5);

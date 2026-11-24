@@ -8,6 +8,7 @@ import { Waveform } from "../../components/Waveform";
 import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
 import { resolveReleaseTheme } from "../../domain/releaseTheme";
 import { StreamingMenu } from "./StreamingMenu";
+import { formatReleaseDate } from "../../data/releaseMetadata";
 
 export function MusicSection({
   releases,
@@ -124,13 +125,13 @@ export function MusicSection({
                 </button>
               )}
               <div>
-                <h3>{active.title}</h3>
+                <h3 data-preserve-display-case={active.preserveDisplayCase}>
+                  {active.title}
+                </h3>
                 <p>
+                  {active.artistCredit && <>{active.artistCredit} · </>}
                   {t.common.single} ·{" "}
-                  {new Date(`${active.releaseDate}T12:00:00`).toLocaleString(
-                    locale === "es" ? "es" : "en-US",
-                    { month: "long", year: "numeric" },
-                  )}
+                  {formatReleaseDate(active.releaseDate, locale)}
                 </p>
               </div>
             </div>

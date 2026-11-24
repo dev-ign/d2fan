@@ -347,7 +347,7 @@ html[data-experience="home"] {
 }
 .featured-card > span {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
 }
@@ -358,6 +358,11 @@ html[data-experience="home"] {
 }
 .featured-card strong {
   font: 600 19px/1.2 var(--font-body);
+}
+.featured-credit {
+  color: var(--bone-1);
+  font-size: 11px;
+  line-height: 1.3;
 }
 .featured-arrow {
   width: 16px;
@@ -434,6 +439,11 @@ html[data-experience="home"] {
   font: 800 clamp(48px, 5vw, 76px)/0.9 var(--font-display);
   text-transform: uppercase;
   overflow-wrap: anywhere;
+}
+.release-head h3[data-preserve-display-case="true"],
+.release-page-grid h1[data-preserve-display-case="true"],
+.release-artist[data-preserve-display-case="true"] {
+  text-transform: none;
 }
 .release-head p {
   margin: 12px 0 0;
@@ -1067,6 +1077,33 @@ html[data-experience="home"] {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
+}
+.release-share {
+  margin: 12px 0;
+}
+.release-share .button {
+  max-width: 100%;
+}
+.release-share-status {
+  margin: 8px 0 0;
+  color: var(--bone-1);
+  font-size: 12px;
+}
+.release-share-status:empty {
+  margin: 0;
+}
+.release-share-url {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--ink-2);
+  color: var(--bone-0);
+  font: 12px var(--font-mono);
+}
+.release-discovery {
+  margin-top: 18px;
 }
 .stream-links {
   display: flex;
