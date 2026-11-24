@@ -1,8 +1,6 @@
-import { releases } from "../src/data/content.ts";
-
-const publishAt = Date.parse(
-  releases.find((release) => release.id === "sayyouluvme")?.publishAt ?? "",
-);
+// Keep the standalone Vercel function free of client bundle dependencies.
+// The media cutoff test checks this against the catalog publication time.
+const publishAt = Date.parse("2026-11-27T05:00:00Z");
 const noStore = { "Cache-Control": "no-store" };
 
 export async function GET(request: Request) {
