@@ -1,6 +1,6 @@
 import { useLocale, text } from "../../hooks/useLocale";
 
-const updated = new Date("2026-11-18T12:00:00Z");
+const updated = new Date("2026-11-23T12:00:00Z");
 
 export function PrivacyPage() {
   const {

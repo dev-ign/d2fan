@@ -159,6 +159,12 @@ export const english = {
     vaultSecond: "VAULT.",
     title: "Support Jona",
     operator: "Stripe test mode · authorized operator · no real charge",
+    checkoutNote:
+      "One-time payment in USD. Refund requests are reviewed individually.",
+    paymentHelp: "Email for payment help or refunds",
+    refundPolicyTitle: "Payment and refund policy",
+    refundPolicy:
+      "You can leave Stripe Checkout before confirming payment. Contact the artist about accidental, duplicate or unauthorized payments or other refund concerns. We review requests fairly under applicable consumer protection and payment-provider rules. Refunds depend on the circumstances.",
   },
   privacy: {
     title: "Privacy Policy",
@@ -172,7 +178,7 @@ export const english = {
       "When you sign up, we collect your email address, preferred language and signup source. We use this information to save your signup and provide the reward you requested when available. We use Resend to deliver requested emails. If you separately ask for music and release updates, we record that request and require you to confirm it by email before granting marketing permission. Promotional sending is currently disabled. You can withdraw permission using the unsubscribe link in marketing emails.",
     purchasesTitle: "Purchases and downloads",
     purchases:
-      "When checkout is available, Stripe handles payment details. We keep the purchase, contact and access records needed to deliver downloads, confirm payment and help you recover access. Supabase stores site records and hosts private files. The site verifies access before issuing temporary links to those files.",
+      "When checkout is available, Stripe handles payment details and collects your email for guest contributions. We keep the transaction references, amount and status needed to confirm and reconcile contributions. For Vault purchases, we keep the purchase, contact and access records needed to deliver downloads and help you recover access. Supabase stores site records and hosts private files. The site verifies access before issuing temporary links to those files.",
     measurementTitle: "Browser settings and measurement",
     measurement:
       "The site remembers your language and measurement choice in your browser. If you allow campaign measurement in the footer, the site can share activity with Meta, including page visits, preview starts, streaming link clicks, signup form views and starts, and campaign conversions. These events can include the release, page placement and site language. You can turn measurement off there at any time. Music links take you to other services, whose privacy policies apply on their sites.",
@@ -188,6 +194,7 @@ export const english = {
   transaction: {
     recover: "Already purchased? Recover access",
     dialog: "Your purchase and access",
+    tipTitle: "Your contribution",
     direct: "DIRECT FROM JONA",
     first: "STAY",
     second: "CLOSE.",
@@ -199,7 +206,8 @@ export const english = {
     failed: "Payment could not be completed. You can try again.",
     canceled:
       "Checkout was canceled. No download is unlocked. You can resume payment below.",
-    tipCanceled: "You canceled checkout. You can try again when you’re ready.",
+    tipCanceled:
+      "You canceled checkout. If you already submitted a payment, check its status before trying again.",
     waiting:
       "Waiting for verified payment confirmation. This may take a moment.",
     check: "CHECK PAYMENT AGAIN",
@@ -417,6 +425,12 @@ export const spanish: SiteMessages = {
     vaultSecond: "ARCHIVO.",
     title: "Apoya a Jona",
     operator: "Modo de prueba de Stripe · operador autorizado · sin cobro real",
+    checkoutNote:
+      "Pago único en USD. Revisamos cada solicitud de reembolso por separado.",
+    paymentHelp: "Ayuda con pagos o reembolsos por correo",
+    refundPolicyTitle: "Política de pagos y reembolsos",
+    refundPolicy:
+      "Puedes salir de Stripe Checkout antes de confirmar el pago. Contacta al artista si hiciste un pago por error, si se duplicó, si no lo autorizaste o si tienes otra consulta sobre reembolsos. Revisamos cada solicitud de forma justa, conforme a las normas de protección al consumidor y del proveedor de pagos. Los reembolsos dependen de cada caso.",
   },
   privacy: {
     title: "Política de privacidad",
@@ -430,7 +444,7 @@ export const spanish: SiteMessages = {
       "Cuando te registras, recopilamos tu correo, tu idioma preferido y el origen de tu registro. Usamos estos datos para guardar tu registro y entregarte la recompensa solicitada cuando esté disponible. Usamos Resend para enviar los correos solicitados. Si pides por separado recibir música y novedades sobre lanzamientos, registramos tu solicitud y te pedimos que la confirmes por correo antes de conceder el permiso de marketing. El envío de promociones está desactivado. Puedes retirar tu permiso con el enlace para darte de baja incluido en los correos promocionales.",
     purchasesTitle: "Compras y descargas",
     purchases:
-      "Cuando los pagos están disponibles, Stripe gestiona los datos de pago. Conservamos los datos de compra, contacto y acceso necesarios para entregar descargas, confirmar el pago y ayudarte a recuperar el acceso. Supabase guarda los registros del sitio y aloja archivos privados. El sitio verifica tu acceso antes de generar enlaces temporales a esos archivos.",
+      "Cuando los pagos están disponibles, Stripe gestiona los datos de pago y recopila tu correo para los aportes como invitado. Guardamos las referencias, el importe y el estado de la transacción para confirmar y conciliar los aportes. Para las compras en Vault, guardamos los datos de compra, contacto y acceso necesarios para entregar descargas y ayudarte a recuperar el acceso. Supabase guarda los registros del sitio y aloja archivos privados. El sitio verifica tu acceso antes de generar enlaces temporales a esos archivos.",
     measurementTitle: "Preferencias del navegador y medición",
     measurement:
       "El sitio recuerda tu idioma y tu preferencia de medición en el navegador. Si permites la medición de campañas en el pie de página, el sitio puede compartir actividad con Meta, como visitas, inicios de adelantos, clics en enlaces de música, vistas e inicios del formulario de registro y conversiones de campañas. Los eventos pueden incluir el lanzamiento, la ubicación del formulario o del control en el sitio y el idioma. Puedes desactivarla allí en cualquier momento. Los enlaces de música te llevan a otros servicios, que aplican sus propias políticas de privacidad.",
@@ -447,6 +461,7 @@ export const spanish: SiteMessages = {
   transaction: {
     recover: "¿Ya compraste? Recupera tu acceso",
     dialog: "Tu compra y acceso",
+    tipTitle: "Tu aporte",
     direct: "DIRECTO DE JONA",
     first: "MANTENTE",
     second: "CERCA.",
@@ -458,7 +473,7 @@ export const spanish: SiteMessages = {
     canceled:
       "Cancelaste el pago. No se desbloqueó ninguna descarga. Puedes retomarlo aquí.",
     tipCanceled:
-      "Cancelaste el pago. Puedes intentarlo de nuevo cuando quieras.",
+      "Saliste de Stripe Checkout. Si ya enviaste un pago, revisa su estado antes de intentarlo de nuevo.",
     waiting:
       "Esperando la confirmación verificada del pago. Puede tardar un momento.",
     check: "VOLVER A VERIFICAR EL PAGO",

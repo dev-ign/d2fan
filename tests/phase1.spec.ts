@@ -39,6 +39,19 @@ test("guest Support retries the same checkout and redirects without fan capture"
   const dialog = page.getByRole("dialog", { name: "Support the Music" });
   const amount = dialog.getByLabel("Custom amount (USD)");
   const pay = dialog.getByRole("button", { name: "CONTINUE TO STRIPE" });
+  await expect(dialog.getByText(/one-time payment in USD/i)).toBeInViewport();
+  await expect(dialog).toContainText(
+    /vault access and mailing-list signup are separate/i,
+  );
+  const paymentHelp = dialog.getByRole("link", {
+    name: "Email for payment help or refunds",
+  });
+  if (process.env.VITE_PAYMENT_SUPPORT_EMAIL)
+    await expect(paymentHelp).toHaveAttribute(
+      "href",
+      `mailto:${process.env.VITE_PAYMENT_SUPPORT_EMAIL}`,
+    );
+  else await expect(paymentHelp).toHaveCount(0);
   for (const preset of ["$5", "$15", "$30"])
     await expect(
       dialog.getByRole("button", { name: preset, exact: true }),
@@ -61,7 +74,7 @@ test("guest Support retries the same checkout and redirects without fan capture"
   } finally {
     deferFirst.resolve();
   }
-  await expect(dialog.getByText(/could not connect/i)).toBeVisible();
+  await expect(dialog.getByText(/could not connect/i)).toBeInViewport();
   await expect(amount).toHaveValue("15.25");
   await pay.click();
   await expect(page).toHaveURL(checkout.url);
@@ -373,7 +386,7 @@ test("disabled capture and recovery are truthful in English and Spanish without 
 });
 test("responsive header bounds, modal keyboard trap and no horizontal overflow", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.evaluate(() => document.fonts.ready);
@@ -398,16 +411,53 @@ test("responsive header bounds, modal keyboard trap and no horizontal overflow",
   await expect(
     dialog.getByRole("button", { name: "Close dialog" }),
   ).toBeFocused();
-  await page.screenshot({ path: "artifacts/qa-phase1/support-320.png" });
+  const amount = dialog.getByLabel("Custom amount (USD)");
+  await amount.fill("4.99");
+  await expect(amount).toHaveAccessibleDescription(/choose an amount/i);
+  await page.keyboard.press("Tab");
+  const policy = dialog.locator("summary");
+  await expect(policy).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByText(/leave Stripe Checkout/i)).toBeVisible();
+  await amount.fill("5");
+  await expect(dialog.getByText(/one-time payment in USD/i)).toBeInViewport();
+  await expect(
+    dialog.getByRole("button", { name: "CONTINUE TO STRIPE" }),
+  ).toBeInViewport();
+  await dialog.screenshot({ path: testInfo.outputPath("support-en-320.png") });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Change language" }).click();
   await page.getByRole("menuitemradio", { name: /ES/ }).click();
   await page.getByRole("button", { name: "Abrir menú" }).click();
   await page.getByRole("button", { name: "APOYA LA MÚSICA" }).click();
+  const spanish = page.getByRole("dialog", { name: "Apoya la música" });
+  await expect(spanish.getByText(/pago único en USD/i)).toBeInViewport();
+  await spanish.getByLabel("Otra cantidad (USD)").fill("5,25");
   await expect(
-    page
-      .getByRole("dialog", { name: "Apoya la música" })
-      .getByRole("button", { name: "CONTINUAR A STRIPE" }),
+    spanish.getByRole("button", { name: "CONTINUAR A STRIPE" }),
+  ).toBeInViewport();
+  await expect(
+    spanish.getByRole("button", { name: "CONTINUAR A STRIPE" }),
+  ).toBeEnabled();
+  await spanish.locator("summary").click();
+  await expect(
+    spanish.getByText(/normas de protección al consumidor/i),
+  ).toBeVisible();
+  await dialog.screenshot({ path: testInfo.outputPath("support-es-320.png") });
+  await page.setViewportSize({ width: 1440, height: 920 });
+  await expect(spanish.getByText(/pago único en USD/i)).toBeInViewport();
+  await expect(
+    spanish.getByRole("button", { name: "CONTINUAR A STRIPE" }),
+  ).toBeInViewport();
+  await dialog.screenshot({ path: testInfo.outputPath("support-es-1440.png") });
+  await page.goto("/privacy");
+  await expect(
+    page.getByText(/Stripe gestiona los datos de pago y recopila tu correo/i),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cambiar idioma" }).click();
+  await page.getByRole("menuitemradio", { name: /EN/ }).click();
+  await expect(
+    page.getByText(/Stripe handles payment details and collects your email/i),
   ).toBeVisible();
 });
 
@@ -458,6 +508,7 @@ test("guest Support distinguishes cancellation, pending confirmation and verifie
   await page.goto("/?checkout=cancel#status=scoped-test-status");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("You canceled checkout.");
+  await expect(dialog).toContainText("check its status before trying again");
   await expect(dialog).not.toContainText(/download|payment confirmed/i);
   await dialog.getByRole("button", { name: "Close dialog" }).click();
   await page.goto("/?checkout=return#status=scoped-test-status");
@@ -470,4 +521,35 @@ test("guest Support distinguishes cancellation, pending confirmation and verifie
     "Payment confirmed. Thank you for supporting Jona.",
   );
   await expect(dialog).not.toContainText(/download|email delivery|receipt/i);
+  await expect(dialog).toHaveAccessibleName("Your contribution");
+
+  await dialog.getByRole("button", { name: "Close dialog" }).click();
+  await page.getByRole("button", { name: "Change language" }).click();
+  await page.getByRole("menuitemradio", { name: /ES/ }).click();
+  paid = false;
+  await page.goto("/?checkout=cancel#status=scoped-test-status");
+  await expect(dialog).toContainText("Saliste de Stripe Checkout.");
+  await expect(dialog).not.toContainText(/descarga|pago confirmado/i);
+  await dialog.getByRole("button", { name: "Cerrar diálogo" }).click();
+  await page.goto("/?checkout=return#status=scoped-test-status");
+  await expect(dialog).toContainText(
+    "Esperando la confirmación verificada del pago.",
+  );
+  paid = true;
+  await dialog
+    .getByRole("button", { name: "VOLVER A VERIFICAR EL PAGO" })
+    .click();
+  await expect(dialog).toContainText(
+    "Pago confirmado. Gracias por apoyar a Jona.",
+  );
+  await expect(dialog).toHaveAccessibleName("Tu aporte");
+  if (process.env.VITE_PAYMENT_SUPPORT_EMAIL)
+    await expect(
+      dialog.getByRole("link", {
+        name: "Ayuda con pagos o reembolsos por correo",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `mailto:${process.env.VITE_PAYMENT_SUPPORT_EMAIL}`,
+    );
 });

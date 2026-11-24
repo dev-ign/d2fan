@@ -247,7 +247,9 @@ export function TransactionExperience({
               ? t.transaction.confirmTitle
               : context.mode === "unsubscribe"
                 ? t.transaction.unsubscribeTitle
-                : t.transaction.dialog
+                : status?.purpose === "tip"
+                  ? t.transaction.tipTitle
+                  : t.transaction.dialog
           }
           onClose={() => {
             setOpen(false);
@@ -295,6 +297,16 @@ export function TransactionExperience({
               )}
               {status?.status === "completed" &&
                 status.purpose === "vault_unlock" && <p>{deliveryMessage}</p>}
+              {status?.purpose === "tip" && runtime.paymentSupportEmail && (
+                <p>
+                  <a
+                    className="support-payment-link"
+                    href={`mailto:${runtime.paymentSupportEmail}`}
+                  >
+                    {t.supportUI.paymentHelp}
+                  </a>
+                </p>
+              )}
             </>
           )}
           {context.mode === "status" &&

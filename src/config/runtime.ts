@@ -3,6 +3,7 @@ export { catalog };
 export const runtime = {
   supportEnabled: import.meta.env.VITE_SUPPORT_ENABLED === "true",
   commerceEnabled: import.meta.env.VITE_COMMERCE_ENABLED === "true",
+  paymentSupportEmail: import.meta.env.VITE_PAYMENT_SUPPORT_EMAIL?.trim() ?? "",
   paymentTestApi:
     import.meta.env.DEV &&
     location.protocol === "http:" &&

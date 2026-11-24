@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "./Dialog";
-import { catalog } from "../config/runtime";
+import { catalog, runtime } from "../config/runtime";
 import { useLocale, vaultCopy } from "../hooks/useLocale";
 import type { VaultItem } from "../domain/types";
 import {
@@ -58,7 +58,9 @@ export function SupportDialog({
       active = false;
     };
   }, [item?.slug, item?.priceMinor, item?.currency, operatorToken]);
-  const minor = item?.priceMinor ?? amountFromInput(amount);
+  const minor =
+    item?.priceMinor ??
+    amountFromInput(language === "es" ? amount.replace(",", ".") : amount);
   const valid = validAmount(
     minor,
     catalog.support.minMinor,
@@ -180,6 +182,21 @@ export function SupportDialog({
     item?.status !== undefined &&
     item.status !== "available" &&
     !testAuthorized;
+  const feedback = (
+    <p
+      id="support-status"
+      className="form-status form-status--error"
+      role="status"
+    >
+      {message === "invalid"
+        ? t.invalid
+        : message
+          ? language === "es"
+            ? t.requestError
+            : message
+          : ""}
+    </p>
+  );
   return (
     <Dialog
       title={item ? t.supportUI.dialog : t.supportUI.tipDialog}
@@ -192,15 +209,33 @@ export function SupportDialog({
         <>
           {!unavailable &&
             (step === 1 ? (
-              <button
-                className="button button--lime support-continue"
-                type="button"
-                disabled={!valid || loading}
-                aria-busy={loading}
-                onClick={() => (item ? setStep(2) : void startSupport())}
-              >
-                {item ? t.next : loading ? t.saving : t.pay}
-              </button>
+              <>
+                {!item && (
+                  <>
+                    <p className="fine-print support-checkout-note">
+                      {t.supportUI.checkoutNote}{" "}
+                      {runtime.paymentSupportEmail && (
+                        <a
+                          className="support-payment-link"
+                          href={`mailto:${runtime.paymentSupportEmail}`}
+                        >
+                          {t.supportUI.paymentHelp}
+                        </a>
+                      )}
+                    </p>
+                    {feedback}
+                  </>
+                )}
+                <button
+                  className="button button--lime support-continue"
+                  type="button"
+                  disabled={!valid || loading}
+                  aria-busy={loading}
+                  onClick={() => (item ? setStep(2) : void startSupport())}
+                >
+                  {item ? t.next : loading ? t.saving : t.pay}
+                </button>
+              </>
             ) : step === 2 ? (
               <div className="form-actions">
                 <button
@@ -301,6 +336,12 @@ export function SupportDialog({
                 </>
               )}
               <p className="fine-print">{item ? t.refund : t.tax}</p>
+              {!item && (
+                <details className="fine-print support-refund-policy">
+                  <summary>{t.supportUI.refundPolicyTitle}</summary>
+                  <p>{t.supportUI.refundPolicy}</p>
+                </details>
+              )}
             </>
           )}
           {step === 2 && (
@@ -352,19 +393,7 @@ export function SupportDialog({
           )}
         </>
       )}
-      <p
-        id="support-status"
-        className="form-status form-status--error"
-        role="status"
-      >
-        {message === "invalid"
-          ? t.invalid
-          : message
-            ? language === "es"
-              ? t.requestError
-              : message
-            : ""}
-      </p>
+      {item && feedback}
     </Dialog>
   );
 }
