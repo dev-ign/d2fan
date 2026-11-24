@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "../../components/Dialog";
 import { checkoutService, fanService, vaultService } from "../../services/fan";
 import { analytics } from "../../services/analytics";
-import type { CheckoutStatus } from "../../../supabase/shared/contracts";
+import type {
+  CheckoutStatus,
+  RewardDownload,
+} from "../../../supabase/shared/contracts";
 import { vaultItems } from "../../data/content";
 import { runtime } from "../../config/runtime";
 type Feedback =
@@ -65,7 +68,7 @@ export function TransactionExperience({
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<Feedback>(null);
   const [status, setStatus] = useState<CheckoutStatus>();
-  const [links, setLinks] = useState<{ title: string; url: string }[]>([]);
+  const [links, setLinks] = useState<RewardDownload[]>([]);
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [cancelled] = useState(
@@ -366,13 +369,15 @@ export function TransactionExperience({
             </button>
           )}
           {links.map((link) => (
-            <p key={link.title}>
+            <p key={link.device ?? link.title}>
               <a
                 className="button button--outline"
                 href={link.url}
                 rel="noreferrer"
               >
-                {text(t.transaction.download, { title: link.title })}
+                {link.device
+                  ? t.wallpapers[link.device]
+                  : text(t.transaction.download, { title: link.title })}
               </a>
             </p>
           ))}

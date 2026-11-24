@@ -100,6 +100,8 @@ export const analytics = {
       "platform",
       "placement",
       "language",
+      "reward_id",
+      "wallpaper_device",
     ])
       if (details[key] !== undefined) data[key] = details[key];
     try {

@@ -51,10 +51,10 @@ export async function rpc<T>(
 ): Promise<T> {
   const { data, error } = await db().rpc(name, args);
   if (error) {
-    // capture_fan raises this fixed exception before any writes on a conflicting
-    // replay. P0001 alone is generic; never translate other RPCs or messages.
+    // The capture RPCs raise this fixed exception before writing on a
+    // conflicting replay. P0001 alone is generic.
     if (
-      name === "capture_fan" &&
+      (name === "capture_fan" || name === "capture_fan_with_reward") &&
       error.code === "P0001" &&
       error.message === "request_conflict"
     )

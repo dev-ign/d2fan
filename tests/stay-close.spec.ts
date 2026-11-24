@@ -10,6 +10,115 @@ const saved = {
   delivery: "queued",
 };
 
+test("La Cultura offers two signed wallpapers and keeps marketing optional", async ({
+  page,
+}) => {
+  await page.route("**/src/config/runtime.ts", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body: `${await response.text()}\nruntime.laCulturaWallpapers = true;`,
+    });
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#stay-close");
+  const stay = page.locator("#stay-close");
+  await expect(
+    stay.getByRole("heading", { name: "Get the La Cultura wallpapers" }),
+  ).toBeVisible();
+  await expect(
+    stay.getByRole("img", { name: /desktop wallpaper preview/i }),
+  ).toHaveJSProperty("naturalWidth", 576);
+  await expect(
+    stay.getByRole("img", { name: /mobile wallpaper preview/i }),
+  ).toHaveJSProperty("naturalWidth", 184);
+  await stay.screenshot({ path: `${output}/la-cultura-home-en.png` });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem("jona:locale", "es"));
+  const submitted: unknown[] = [];
+  let legacyResponse = false;
+  const mobile = "https://storage.example.com/signed-mobile";
+  const desktop = "https://storage.example.com/signed-desktop";
+  await page.route("**/functions/v1/capture-fan", async (route) => {
+    submitted.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        success: true,
+        data: legacyResponse
+          ? { ...saved, magnetUrl: "https://storage.example.com/signed-accion" }
+          : {
+              ...saved,
+              delivery: "disabled",
+              rewardId: "la_cultura_wallpapers",
+              wallpaperLinks: [
+                {
+                  device: "mobile",
+                  title: "La Cultura mobile wallpaper",
+                  url: mobile,
+                },
+                {
+                  device: "desktop",
+                  title: "La Cultura desktop wallpaper",
+                  url: desktop,
+                },
+              ],
+            },
+      },
+    });
+  });
+  await page.goto("/music/sayyouluvme?utm_campaign=sayyouluvme_2026");
+  const signup = page.locator("#release-signup");
+  await expect(
+    page.getByRole("heading", { name: "SayYouLuvMe" }),
+  ).toBeVisible();
+  await expect(
+    signup.getByLabel("Tu correo electrónico", { exact: true }),
+  ).toBeVisible();
+  await expect(signup.getByRole("checkbox")).not.toBeChecked();
+  await page.screenshot({
+    path: `${output}/la-cultura-release-es.png`,
+    fullPage: true,
+  });
+  const join = async () => {
+    await signup
+      .getByLabel("Tu correo electrónico", { exact: true })
+      .fill("fan@example.com");
+    await signup.getByRole("button", { name: "Únete a La Cultura" }).click();
+  };
+  await join();
+  const ready = signup.getByRole("region", {
+    name: "¡Tus wallpapers están listos!",
+  });
+  await expect(
+    ready.getByRole("link", { name: "Wallpaper para celular" }),
+  ).toHaveAttribute("href", mobile);
+  await expect(
+    ready.getByRole("link", { name: "Wallpaper para computadora" }),
+  ).toHaveAttribute("href", desktop);
+  await expect(ready).toContainText("Solo solicitaste los wallpapers.");
+  await ready.screenshot({ path: `${output}/la-cultura-downloads-es.png` });
+  expect(submitted[0]).toMatchObject({
+    rewardId: "la_cultura_wallpapers",
+    emailMarketing: false,
+    analyticsConsent: false,
+    lastTouch: { release: "sayyouluvme", utm_campaign: "sayyouluvme_2026" },
+  });
+
+  legacyResponse = true;
+  await page.reload();
+  await join();
+  await expect(
+    signup.locator(".stay-reward-status").getByText(
+      "Los wallpapers de La Cultura no están disponibles por el momento. Inténtalo más tarde.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    signup.locator('a[href="https://storage.example.com/signed-accion"]'),
+  ).toHaveCount(0);
+});
+
 for (const width of [390, 1440]) {
   test(`Stage A preserves signup, rewards and consent with commerce disabled at ${width}px`, async ({
     page,

@@ -1,5 +1,7 @@
 import { useLocale } from "../../hooks/useLocale";
 import { FanCaptureForm } from "../fan-capture/FanCaptureForm";
+import { WallpaperPreview } from "../fan-capture/WallpaperPreview";
+import { runtime } from "../../config/runtime";
 
 export function StayClose() {
   const { t } = useLocale();
@@ -16,16 +18,30 @@ export function StayClose() {
             <span>{t.stay.first}</span>
             <em>{t.stay.second}</em>
           </h2>
-          <p>{t.stay.intro}</p>
+          <p>
+            {runtime.laCulturaWallpapers ? t.wallpapers.intro : t.stay.intro}
+          </p>
         </div>
-        <p className="incentive">
-          <img src="/assets/gift.svg" alt="" width="24" height="24" />{" "}
-          {t.stay.incentive}
-        </p>
+        {runtime.laCulturaWallpapers ? (
+          <>
+            <div className="wallpaper-offer">
+              <h3>{t.wallpapers.offer}</h3>
+              <p>{t.wallpapers.description}</p>
+            </div>
+            <WallpaperPreview />
+          </>
+        ) : (
+          <p className="incentive">
+            <img src="/assets/gift.svg" alt="" width="24" height="24" />{" "}
+            {t.stay.incentive}
+          </p>
+        )}
         <FanCaptureForm />
-        <div className="reward-art" aria-hidden="true">
-          <img src="/assets/raw-stay-1.webp" alt="" />
-        </div>
+        {!runtime.laCulturaWallpapers && (
+          <div className="reward-art" aria-hidden="true">
+            <img src="/assets/raw-stay-1.webp" alt="" />
+          </div>
+        )}
         <footer className="site-footer">
           <span className="sr-only">{t.stay.footer}</span>
         </footer>

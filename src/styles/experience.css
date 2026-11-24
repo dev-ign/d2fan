@@ -843,6 +843,49 @@ html[data-experience="home"] {
   width: 20px;
   height: 20px;
 }
+.wallpaper-offer {
+  grid-column: 1;
+  margin-block: 24px;
+}
+.wallpaper-offer h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.wallpaper-offer p {
+  margin: 0;
+  color: var(--bone-soft);
+  font-size: 13px;
+}
+.wallpaper-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.26fr);
+  align-items: end;
+  gap: 10px;
+  width: min(100%, 330px);
+}
+.wallpaper-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--line-control);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px #0005;
+}
+.stay-content > .wallpaper-preview {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  justify-self: end;
+}
+.release-capture > .wallpaper-preview {
+  width: min(100%, 206px);
+  margin: 0 0 18px;
+}
+.wallpaper-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .capture-surface {
   min-width: 0;
   grid-column: 1;
@@ -1597,6 +1640,16 @@ html[data-experience="home"] {
     width: 140px;
     margin-top: 32px;
     aspect-ratio: 1;
+  }
+  .stay-content > .wallpaper-preview {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    width: min(100%, 290px);
+    margin-bottom: 24px;
+  }
+  .release-capture > .wallpaper-preview {
+    margin-inline: auto;
   }
   .site-footer {
     margin-top: 32px;

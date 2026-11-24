@@ -15,6 +15,8 @@ import { localContentRepository } from "../../repositories/localContentRepositor
 import { resolveReleaseTheme } from "../../domain/releaseTheme";
 import { ReleaseThemeBackground } from "../../components/ReleaseThemeBackground";
 import { FanCaptureForm } from "../fan-capture/FanCaptureForm";
+import { WallpaperPreview } from "../fan-capture/WallpaperPreview";
+import { runtime } from "../../config/runtime";
 import { useAudio } from "../../hooks/useAudio";
 import { useSectionMotion } from "../../hooks/useSectionMotion";
 import { artist } from "../../data/content";
@@ -152,7 +154,10 @@ export function ReleasePage() {
                 />
               )}
               <Link className="fan-jump" to="#release-signup">
-                {t.stay.rewardCta} <ArrowDown size={14} aria-hidden="true" />
+                {runtime.laCulturaWallpapers
+                  ? t.wallpapers.offer
+                  : t.stay.rewardCta}{" "}
+                <ArrowDown size={14} aria-hidden="true" />
               </Link>
             </div>
             <section
@@ -166,11 +171,14 @@ export function ReleasePage() {
                   {t.release.stay} <em>{t.release.close}</em>
                 </h2>
                 <p>
-                  {release.campaignId
-                    ? t.stay.campaignIntro
-                    : t.stay.releaseIntro}
+                  {runtime.laCulturaWallpapers
+                    ? t.wallpapers.description
+                    : release.campaignId
+                      ? t.stay.campaignIntro
+                      : t.stay.releaseIntro}
                 </p>
               </div>
+              {runtime.laCulturaWallpapers && <WallpaperPreview />}
               <FanCaptureForm key={release.id} releaseSlug={release.slug} />
             </section>
             {release.campaignId && (

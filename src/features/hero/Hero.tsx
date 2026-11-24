@@ -6,6 +6,7 @@ import { Dialog } from "../../components/Dialog";
 import { BiographyGallery } from "./BiographyGallery";
 import { useLocale, text } from "../../hooks/useLocale";
 import { HeroVideo } from "./HeroVideo";
+import { runtime } from "../../config/runtime";
 
 export function Hero({
   artist,
@@ -39,7 +40,8 @@ export function Hero({
               <Ellipsis size={22} aria-hidden="true" />
             </button>
             <Link className="fan-jump" to="/#stay-close">
-              {t.stay.heroCta} <ArrowDown size={14} aria-hidden="true" />
+              {runtime.laCulturaWallpapers ? t.wallpapers.join : t.stay.heroCta}{" "}
+              <ArrowDown size={14} aria-hidden="true" />
             </Link>
           </div>
         </div>

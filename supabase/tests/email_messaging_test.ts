@@ -185,6 +185,37 @@ function harness(overrides: Partial<EmailStore> = {}) {
 }
 
 Deno.test(
+  "La Cultura email uses one request-bound reward link for both wallpapers",
+  async () => {
+    const { calls, deps } = harness();
+    const requestId = crypto.randomUUID();
+    const rewardJob = job({
+      dedupe_key: `capture:${requestId}`,
+      payload: { magnet: true, rewardId: "la_cultura_wallpapers" },
+    });
+    let signedPack = false;
+    const outcome = await deliverEmailJob(rewardJob, readEmailConfig(get), {
+      ...deps,
+      rewardReady: async (pack) => {
+        signedPack = pack;
+      },
+    });
+    assert(outcome === "sent" && signedPack);
+    const signatures = calls.filter(({ type }) => type === "sign");
+    assert(signatures.length === 1 && signatures[0].scope === "reward");
+    assert(
+      signatures[0].actionId === requestId && signatures[0].ttl === 48 * 3600,
+    );
+    const email = calls.find(({ type }) => type === "send")
+      ?.body as OutgoingEmail;
+    assert(email.subject === "Tus wallpapers de La Cultura");
+    assert(email.text.includes("celular y computadora"));
+    assert(email.text.match(/#reward=/g)?.length === 1);
+    assert(!email.text.includes("#confirm="));
+  },
+);
+
+Deno.test(
   "configuration separates transactionals, marketing, sender domain, support, postal and HTTPS",
   async () => {
     const config = readEmailConfig(get);

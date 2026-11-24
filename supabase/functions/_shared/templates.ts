@@ -7,19 +7,27 @@ export function template(
   lang: string,
   links: string[],
   support: string,
-  options: { magnet?: boolean; confirm?: boolean } = {},
+  options: {
+    magnet?: boolean;
+    confirm?: boolean;
+    wallpaperPack?: boolean;
+  } = {},
 ): EmailTemplate {
   const es = lang === "es";
   const content: Record<string, [string, string]> = {
     capture: options.magnet
       ? es
         ? [
-            "Tu wallpaper solicitado",
-            `Aquí está el wallpaper que solicitaste. El enlace de acceso caduca en 48 horas.${options.confirm ? " Si solicitaste novedades, usa el enlace y el botón para confirmar tu permiso." : " Esta entrega no cambia tus preferencias de correo."}`,
+            options.wallpaperPack
+              ? "Tus wallpapers de La Cultura"
+              : "Tu wallpaper solicitado",
+            `${options.wallpaperPack ? "Aquí están tus wallpapers de La Cultura para celular y computadora." : "Aquí está el wallpaper que solicitaste."} El enlace de acceso caduca en 48 horas.${options.confirm ? " Si solicitaste novedades, usa el enlace y el botón para confirmar tu permiso." : " Esta entrega no cambia tus preferencias de correo."}`,
           ]
         : [
-            "Your requested wallpaper",
-            `Here is the wallpaper you requested. The access link expires in 48 hours.${options.confirm ? " If you requested updates, use the link and button to confirm your permission." : " This delivery does not change your email preferences."}`,
+            options.wallpaperPack
+              ? "Your La Cultura wallpapers"
+              : "Your requested wallpaper",
+            `${options.wallpaperPack ? "Here are your La Cultura wallpapers for phone and desktop." : "Here is the wallpaper you requested."} The access link expires in 48 hours.${options.confirm ? " If you requested updates, use the link and button to confirm your permission." : " This delivery does not change your email preferences."}`,
           ]
       : es
         ? [
