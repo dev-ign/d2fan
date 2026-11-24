@@ -166,13 +166,16 @@ function AppShell() {
           {t.privacy.title}
         </Link>
       </footer>
-      {runtime.commerceEnabled && supportItem !== null && (
-        <SupportDialog
-          initialAmount={resumeAmount}
-          item={supportItem === "tip" ? undefined : supportItem}
-          onClose={() => setSupportItem(null)}
-        />
-      )}
+      {supportItem !== null &&
+        (supportItem === "tip"
+          ? runtime.supportEnabled
+          : runtime.commerceEnabled) && (
+          <SupportDialog
+            initialAmount={resumeAmount}
+            item={supportItem === "tip" ? undefined : supportItem}
+            onClose={() => setSupportItem(null)}
+          />
+        )}
     </>
   );
 }

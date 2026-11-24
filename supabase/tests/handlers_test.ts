@@ -6,7 +6,11 @@ import {
   recoverAccess,
 } from "../functions/_shared/handlers.ts";
 import { token, endpoint, rpc } from "../functions/_shared/platform.ts";
-import { signToken, verifyToken } from "../functions/_shared/security.ts";
+import {
+  digest,
+  signToken,
+  verifyToken,
+} from "../functions/_shared/security.ts";
 import { checkoutRequest } from "../functions/create-checkout/index.ts";
 const secret = "a-long-local-only-test-secret-with-32-characters";
 for (const [name, value] of Object.entries({
@@ -17,6 +21,8 @@ for (const [name, value] of Object.entries({
   ALLOWED_ORIGINS: "http://localhost:5173",
   PUBLIC_SITE_URL: "http://localhost:5173",
   STRIPE_SECRET_KEY: "sk_test_local_only",
+  STRIPE_PAYMENT_MODE: "test",
+  STRIPE_ACCOUNT_ID: "acct_mock",
   SCHEDULER_SECRET: secret,
 }))
   Deno.env.set(name, value);
@@ -36,6 +42,7 @@ Deno.test(
   "Stage A checkout denies direct calls before any network or writes",
   async () => {
     const previous = Deno.env.get("COMMERCE_ENABLED");
+    const previousSupport = Deno.env.get("SUPPORT_ENABLED");
     const originalFetch = globalThis.fetch;
     let calls = 0;
     globalThis.fetch = () => {
@@ -46,8 +53,10 @@ Deno.test(
     };
     try {
       for (const flag of [undefined, "false", "TRUE"]) {
-        if (flag === undefined) Deno.env.delete("COMMERCE_ENABLED");
-        else Deno.env.set("COMMERCE_ENABLED", flag);
+        for (const key of ["COMMERCE_ENABLED", "SUPPORT_ENABLED"]) {
+          if (flag === undefined) Deno.env.delete(key);
+          else Deno.env.set(key, flag);
+        }
         for (const purpose of ["tip", "vault_unlock"]) {
           const response = await checkoutRequest(
             new Request("http://localhost/create-checkout", {
@@ -82,6 +91,8 @@ Deno.test(
       globalThis.fetch = originalFetch;
       if (previous === undefined) Deno.env.delete("COMMERCE_ENABLED");
       else Deno.env.set("COMMERCE_ENABLED", previous);
+      if (previousSupport === undefined) Deno.env.delete("SUPPORT_ENABLED");
+      else Deno.env.set("SUPPORT_ENABLED", previousSupport);
     }
   },
 );
@@ -130,38 +141,44 @@ Deno.test(
     const req = new Request("http://localhost");
     await rejects(() => captureFan(req, { email: "bad" }), "invalid_email");
     const captureToken = await token("capture", "fan", 300);
-    await rejects(
-      () =>
-        createCheckout(req, {
-          requestId: crypto.randomUUID(),
-          captureToken,
-          purpose: "tip",
-          amountMinor: 499,
-          analyticsConsent: false,
-        }),
-      "invalid_amount",
-    );
-    await rejects(
-      () =>
-        createCheckout(req, {
-          requestId: crypto.randomUUID(),
-          captureToken,
-          purpose: "vault_unlock",
-          itemSlug: "accion-wallpaper",
-          amountMinor: 1,
-          analyticsConsent: false,
-        }),
-      "unavailable_item",
-    );
-    await rejects(
-      () => checkoutStatus(req, { token: "cs_test_known_session" }),
-      "unauthorized",
-    );
-    await rejects(
-      async () =>
-        redeemVault(req, { token: await token("capture", "known-fan", 300) }),
-      "unauthorized",
-    );
+    Deno.env.set("SUPPORT_ENABLED", "true");
+    Deno.env.set("COMMERCE_ENABLED", "true");
+    try {
+      await rejects(
+        () =>
+          createCheckout(req, {
+            requestId: crypto.randomUUID(),
+            guestToken: crypto.randomUUID(),
+            purpose: "tip",
+            amountMinor: 499,
+          }),
+        "invalid_amount",
+      );
+      await rejects(
+        () =>
+          createCheckout(req, {
+            requestId: crypto.randomUUID(),
+            captureToken,
+            purpose: "vault_unlock",
+            itemSlug: "accion-wallpaper",
+            amountMinor: 1,
+            analyticsConsent: false,
+          }),
+        "unavailable_item",
+      );
+      await rejects(
+        () => checkoutStatus(req, { token: "cs_test_known_session" }),
+        "unauthorized",
+      );
+      await rejects(
+        async () =>
+          redeemVault(req, { token: await token("capture", "known-fan", 300) }),
+        "unauthorized",
+      );
+    } finally {
+      Deno.env.delete("SUPPORT_ENABLED");
+      Deno.env.delete("COMMERCE_ENABLED");
+    }
   },
 );
 Deno.test(
@@ -476,99 +493,184 @@ Deno.test(
   },
 );
 Deno.test(
-  "capture and checkout orchestrate real adapters with mocked HTTP boundaries",
+  "guest checkout uses the existing adapters without fan data and binds retries and status",
   async () => {
     const original = globalThis.fetch;
-    const calls: { url: string; body: unknown }[] = [];
-    const attempt = crypto.randomUUID();
-    const fan = crypto.randomUUID();
+    let requestId = crypto.randomUUID();
+    const guestToken = crypto.randomUUID();
+    const body = { requestId, guestToken, purpose: "tip", amountMinor: 1525 };
+    const req = new Request("http://localhost");
+    let attempt: Record<string, unknown> | undefined;
+    let creates = 0;
+    let merchant = "acct_mock";
+    let live = false;
+    const json = (value: unknown) =>
+      new Response(JSON.stringify(value), {
+        headers: { "Content-Type": "application/json" },
+      });
     globalThis.fetch = async (input, init) => {
-      const url = input instanceof Request ? input.url : String(input);
-      const body = init?.body
-        ? String(init.body)
-        : input instanceof Request
-          ? await input.clone().text()
-          : "";
-      calls.push({ url, body });
-      const json = (value: unknown, status = 200) =>
-        new Response(JSON.stringify(value), {
-          status,
-          headers: { "Content-Type": "application/json" },
-        });
-      if (url.includes("/rpc/check_rate")) return json(true);
-      if (url.includes("/rpc/capture_fan")) return json(fan);
-      if (url.includes("/rest/v1/fans"))
-        return json({ email_normalized: "fan@example.com" });
-      if (
-        url.includes("/checkout_attempts") &&
-        (init?.method === "GET" || !init?.method)
-      )
-        return json({
-          id: attempt,
-          artist_id: "jona-ferreira",
-          fan_id: fan,
-          purpose: "tip",
-          item_slug: null,
-          amount_minor: 1500,
-          status: "draft",
-          currency: "usd",
-          created_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 86400000).toISOString(),
-        });
-      if (url.includes("api.stripe.com")) {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const method = init?.method ?? "GET";
+      if (url.href === "https://api.stripe.com/v1/account")
+        return json({ id: merchant });
+      if (url.href === "https://api.stripe.com/v1/checkout/sessions") {
+        creates++;
+        const form = new URLSearchParams(String(init?.body));
         assert(
           new Headers(init?.headers).get("Idempotency-Key") ===
-            `checkout:${attempt}`,
+            `checkout:${requestId}`,
         );
         assert(
-          new URLSearchParams(body).get(
-            "line_items[0][price_data][unit_amount]",
-          ) === "1500",
-          body,
+          form.get("integration_identifier") ===
+            "jona-d2fan-support-prjxwdha" &&
+            form.get("mode") === "payment" &&
+            form.get("metadata[purpose]") === "tip",
+        );
+        assert(form.get("line_items[0][price_data][unit_amount]") === "1525");
+        assert(form.get("line_items[0][price_data][currency]") === "usd");
+        assert(!form.has("customer_email") && !form.has("metadata[fan_id]"));
+        assert(form.get("payment_method_types[0]") === (live ? "card" : null));
+        assert(!form.has("payment_method_types[1]"));
+        assert(
+          form.get("adaptive_pricing[enabled]") === (live ? "false" : null),
+        );
+        const site = live
+          ? "https://jonaferreira.com"
+          : "http://localhost:5173";
+        assert(
+          form
+            .get("success_url")
+            ?.startsWith(`${site}/?checkout=return#status=`),
+        );
+        assert(
+          form
+            .get("cancel_url")
+            ?.startsWith(`${site}/?checkout=cancel#status=`),
         );
         return json({
-          id: "cs_test_mock",
+          id: live ? "cs_live_mock" : "cs_test_mock",
+          livemode: live,
+          mode: "payment",
+          client_reference_id: requestId,
+          amount_total: 1525,
+          currency: "usd",
           url: "https://checkout.stripe.com/test",
         });
       }
-      return json(null);
+      if (url.pathname === "/rest/v1/checkout_attempts") {
+        if (method === "POST") {
+          attempt ??= {
+            ...JSON.parse(String(init?.body)),
+            status: "draft",
+            checkout_url: null,
+            stripe_session_id: null,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3600000).toISOString(),
+          };
+          return json(null);
+        }
+        if (method === "PATCH") {
+          Object.assign(attempt!, JSON.parse(String(init?.body)));
+          return json({ id: requestId });
+        }
+        return json(attempt);
+      }
+      if (url.pathname === "/rest/v1/purchases")
+        return json({ id: "opaque-purchase", status: "paid" });
+      throw new Error(`unexpected test request ${url.pathname}`);
     };
     try {
-      const req = new Request("http://localhost");
-      const captured = await captureFan(req, {
-        requestId: crypto.randomUUID(),
-        email: " FAN@example.com ",
-        language: "en",
-        source: "support_modal",
-        emailMarketing: false,
-        analyticsConsent: false,
-        firstTouch: { utm_source: "instagram" },
-        lastTouch: { utm_source: "instagram" },
-      });
-      const created = await createCheckout(req, {
-        requestId: attempt,
-        captureToken: captured.captureToken,
-        purpose: "tip",
-        amountMinor: 1500,
-        analyticsConsent: false,
-      });
-      assert(created.url === "https://checkout.stripe.com/test");
+      Deno.env.set("SUPPORT_ENABLED", "true");
+      Deno.env.set("COMMERCE_ENABLED", "false");
+      await rejects(
+        () => createCheckout(req, { ...body, purpose: "vault_unlock" }),
+        "commerce_disabled",
+      );
+      await rejects(
+        () => createCheckout(req, { ...body, currency: "eur" }),
+        "invalid_request",
+      );
+      await rejects(
+        () => createCheckout(req, { ...body, itemSlug: "accion-wallpaper" }),
+        "invalid_request",
+      );
+      await rejects(
+        () => createCheckout(req, { ...body, amountMinor: 100001 }),
+        "invalid_amount",
+      );
+      assert(!attempt && creates === 0);
+      merchant = "acct_wrong";
+      await rejects(() => createCheckout(req, body), "payment_configuration");
+      assert(!attempt && creates === 0);
+      merchant = "acct_mock";
+      const created = await createCheckout(req, body);
+      const replay = await createCheckout(req, body);
       assert(
-        calls.findIndex((c) => c.url.includes("/rpc/capture_fan")) <
-          calls.findIndex((c) => c.url.includes("api.stripe.com")),
+        Number(creates) === 1 &&
+          created.url === replay.url &&
+          created.statusToken === replay.statusToken,
+      );
+      assert(attempt && typeof attempt === "object");
+      const stored = attempt as Record<string, unknown>;
+      assert(
+        stored.fan_id === null &&
+          stored.item_slug === null &&
+          stored.analytics_consent === false,
       );
       assert(
-        (
-          await verifyToken(
-            created.statusToken,
-            "status",
-            "jona-ferreira",
-            secret,
-          )
-        ).sub === attempt,
+        stored.payment_mode === "test" &&
+          stored.stripe_account_id === "acct_mock",
       );
+      assert(stored.guest_token_hash === (await digest(guestToken)));
+      await rejects(
+        () => createCheckout(req, { ...body, guestToken: crypto.randomUUID() }),
+        "request_conflict",
+      );
+      await rejects(
+        () => createCheckout(req, { ...body, amountMinor: 500 }),
+        "request_conflict",
+      );
+      for (const supplied of [requestId, guestToken, created.statusToken + "x"])
+        await rejects(
+          () => checkoutStatus(req, { token: supplied }),
+          "unauthorized",
+        );
+      const pending = await checkoutStatus(req, { token: created.statusToken });
+      assert(
+        pending.status === "pending_payment" &&
+          pending.checkoutUrl === created.url &&
+          !pending.accessToken,
+      );
+      Deno.env.set("SUPPORT_ENABLED", "false");
+      await rejects(() => createCheckout(req, body), "commerce_disabled");
+      assert(
+        !(await checkoutStatus(req, { token: created.statusToken }))
+          .checkoutUrl,
+      );
+      stored.status = "completed";
+      const paid = await checkoutStatus(req, { token: created.statusToken });
+      assert(
+        paid.status === "completed" &&
+          paid.delivery === "disabled" &&
+          !paid.accessToken,
+      );
+
+      live = true;
+      attempt = undefined;
+      requestId = crypto.randomUUID();
+      Deno.env.set("STRIPE_PAYMENT_MODE", "live");
+      Deno.env.set("STRIPE_SECRET_KEY", "sk_live_local_only");
+      Deno.env.set("PUBLIC_SITE_URL", "https://jonaferreira.com");
+      Deno.env.set("SUPPORT_ENABLED", "true");
+      await createCheckout(req, { ...body, requestId });
+      assert(Number(creates) === 2);
     } finally {
       globalThis.fetch = original;
+      Deno.env.delete("SUPPORT_ENABLED");
+      Deno.env.delete("COMMERCE_ENABLED");
+      Deno.env.set("STRIPE_PAYMENT_MODE", "test");
+      Deno.env.set("STRIPE_SECRET_KEY", "sk_test_local_only");
+      Deno.env.set("PUBLIC_SITE_URL", "http://localhost:5173");
     }
   },
 );

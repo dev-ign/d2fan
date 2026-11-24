@@ -20,6 +20,10 @@ export default defineConfig({
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
       // Preserve the existing Stage B regressions; Stage A checks opt out.
       VITE_COMMERCE_ENABLED: process.env.VITE_COMMERCE_ENABLED ?? "true",
+      VITE_SUPPORT_ENABLED:
+        process.env.VITE_SUPPORT_ENABLED ??
+        process.env.VITE_COMMERCE_ENABLED ??
+        "true",
     },
     timeout: 30_000,
   },

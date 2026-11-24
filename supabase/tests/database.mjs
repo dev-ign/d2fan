@@ -504,6 +504,102 @@ const unlockState = async (owner, item = "accion-wallpaper") =>
   assert.equal((await purchaseState(p)).status, "refunded");
   assert.equal((await unlockState(owner)).status, "revoked");
 }
+const guestAttempt = crypto.randomUUID();
+const guestSession = "cs_test_guest";
+const guestIntent = "pi_guest";
+const insertGuestAttempt = (purpose, session = guestSession) =>
+  db.query(
+    `insert into checkout_attempts(id,artist_id,purpose,item_slug,amount_minor,currency,stripe_session_id,payment_mode,stripe_account_id,guest_token_hash)
+   values($1,$2,$3,case when $3='vault_unlock' then 'accion-wallpaper' end,500,'usd',$4,'test','acct_mock',repeat('a',64))`,
+    [guestAttempt, artist, purpose, session],
+  );
+const beforeGuest = (await captureSnapshot()).rows;
+await assert.rejects(
+  insertGuestAttempt("vault_unlock"),
+  /checkout_attempt_guest_tip/,
+);
+await assert.rejects(
+  insertGuestAttempt("tip", "cs_live_wrong"),
+  /checkout_attempt_payment_context/,
+);
+await insertGuestAttempt("tip");
+const fulfillGuest = (event, paymentIntent = guestIntent) =>
+  db.query(
+    "select fulfill_checkout($1,'checkout.session.completed',$2,$3,$4,500,'usd') as purchase",
+    [event, guestAttempt, guestSession, paymentIntent],
+  );
+const guestPurchase = (await fulfillGuest("evt_guest_paid")).rows[0].purchase;
+assert.equal(
+  (await fulfillGuest("evt_guest_paid")).rows[0].purchase,
+  guestPurchase,
+);
+await assert.rejects(
+  fulfillGuest("evt_guest_other_intent", "pi_unexpected"),
+  /payment_mismatch/,
+);
+await assert.rejects(
+  db.query("update purchases set purpose='vault_unlock' where id=$1", [
+    guestPurchase,
+  ]),
+  /purchase_guest_tip/,
+);
+await db.query("select refund_purchase($1,$2,false)", [
+  "evt_guest_partial",
+  guestIntent,
+]);
+assert.equal(
+  (await db.query("select status from purchases where id=$1", [guestPurchase]))
+    .rows[0].status,
+  "partially_refunded",
+);
+await db.query("select refund_purchase($1,$2,true)", [
+  "evt_guest_full",
+  guestIntent,
+]);
+await db.query("select refund_purchase($1,$2,true)", [
+  "evt_guest_full",
+  guestIntent,
+]);
+await fulfillGuest("evt_guest_paid_late");
+assert.deepEqual(
+  (
+    await db.query(
+      "select status,fan_id,purpose,vault_item_slug from purchases where checkout_attempt_id=$1",
+      [guestAttempt],
+    )
+  ).rows,
+  [{ status: "refunded", fan_id: null, purpose: "tip", vault_item_slug: null }],
+);
+assert.equal(
+  (
+    await db.query(
+      "select count(*)::int as n from webhook_events where event_id='evt_guest_full'",
+    )
+  ).rows[0].n,
+  1,
+);
+assert.deepEqual((await captureSnapshot()).rows, beforeGuest);
+assert.equal(
+  (
+    await db.query(
+      "select count(*)::int as n from vault_unlocks where purchase_id=$1",
+      [guestPurchase],
+    )
+  ).rows[0].n,
+  0,
+);
+assert.equal(
+  (
+    await db.query("select payment_mode from checkout_attempts where id=$1", [
+      attempt,
+    ])
+  ).rows[0].payment_mode,
+  null,
+);
+console.log(
+  "PASS: guest constraints, idempotent payment and refunds, no guest fan, consent, access or delivery side effects.",
+);
+
 console.log(
   "PASS: migrations, identity/consent, price mismatch rollback, webhook replay, tip isolation, terminal full refunds, duplicate/stale refunds, multiple qualifying purchases, refund-before-purchase retry, anonymous/authenticated negative access.",
 );

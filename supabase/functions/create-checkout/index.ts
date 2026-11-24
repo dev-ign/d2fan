@@ -4,7 +4,10 @@ const handler = endpoint(createCheckout);
 
 export function checkoutRequest(req: Request) {
   // Stage A denies direct API calls before rate counters, database or Stripe.
-  if (Deno.env.get("COMMERCE_ENABLED") !== "true")
+  if (
+    Deno.env.get("COMMERCE_ENABLED") !== "true" &&
+    Deno.env.get("SUPPORT_ENABLED") !== "true"
+  )
     return Response.json(
       {
         success: false,

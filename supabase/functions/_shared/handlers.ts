@@ -8,7 +8,6 @@ import {
   catalog,
   db,
   env,
-  stripe,
   site,
   token,
   verify,
@@ -26,6 +25,15 @@ import type {
 } from "../../shared/contracts.ts";
 import { authorizePaymentTest, testItemSlug } from "./payment-test.ts";
 import { captureEmailConfigured } from "./email-policy.ts";
+import {
+  attemptModeMatches,
+  checkoutSessionIdMatches,
+  checkoutUrl,
+  paymentConfiguration,
+  stripe,
+  stripeModeMatches,
+  verifyStripeAccount,
+} from "./payments.ts";
 
 export async function captureFan(_req: Request, b: Record<string, unknown>) {
   const email = normalizeEmail(b.email);
@@ -163,161 +171,220 @@ export async function captureFan(_req: Request, b: Record<string, unknown>) {
     magnetUrl,
   };
 }
-export async function createCheckout(
-  _req: Request,
-  b: Record<string, unknown>,
-) {
-  const claims = await verify(b.captureToken, "capture");
-  if (
-    !uuid(b.requestId) ||
-    !["tip", "vault_unlock"].includes(String(b.purpose)) ||
-    typeof b.analyticsConsent !== "boolean"
-  )
+export async function createCheckout(req: Request, b: Record<string, unknown>) {
+  const guest = b.purpose === "tip";
+  const operator = b.operatorTestToken !== undefined;
+  if (!uuid(b.requestId) || (!guest && b.purpose !== "vault_unlock"))
     throw new Error("invalid_request");
-  // Validate the shared client before signing content or persisting an attempt.
-  const payments = stripe();
-  const item = catalog.vault.find((v) => v.slug === b.itemSlug);
-  const testing = b.operatorTestToken !== undefined;
-  if (testing) {
-    await authorizePaymentTest(_req, b.operatorTestToken);
-    if (b.purpose !== "vault_unlock" || item?.slug !== testItemSlug)
-      throw new Error("unavailable_item");
+  if (
+    guest
+      ? Deno.env.get("SUPPORT_ENABLED") !== "true"
+      : !operator && Deno.env.get("COMMERCE_ENABLED") !== "true"
+  )
+    throw new Error("commerce_disabled");
+  const config = paymentConfiguration();
+  if (!guest && config.mode !== "test") throw new Error("commerce_disabled");
+
+  let guestHash: string | null = null;
+  let fanId: string | null = null;
+  if (guest) {
+    if (
+      !uuid(b.guestToken) ||
+      b.guestToken === b.requestId ||
+      Object.keys(b).some(
+        (key) =>
+          !["requestId", "purpose", "guestToken", "amountMinor"].includes(key),
+      )
+    )
+      throw new Error("invalid_request");
+    guestHash = await digest(b.guestToken);
+  } else {
+    if (typeof b.analyticsConsent !== "boolean" || b.guestToken !== undefined)
+      throw new Error("invalid_request");
+    fanId = (await verify(b.captureToken, "capture")).sub;
+    if (operator) await authorizePaymentTest(req, b.operatorTestToken);
   }
-  const amount = b.purpose === "tip" ? b.amountMinor : item?.priceMinor;
-  if (b.purpose === "vault_unlock") {
-    if (!item || (item.availability !== "available" && !testing))
-      throw new Error("unavailable_item");
-    await signedFile(item.slug); // Never take payment for a missing file.
-  }
+
+  const item = guest
+    ? undefined
+    : catalog.vault.find((v) => v.slug === b.itemSlug);
+  if (
+    !guest &&
+    (!item ||
+      (operator
+        ? item.slug !== testItemSlug
+        : item.availability !== "available"))
+  )
+    throw new Error("unavailable_item");
+  const amount = guest ? b.amountMinor : item?.priceMinor;
   if (!validAmount(amount, catalog.support.minMinor, catalog.support.maxMinor))
     throw new Error("invalid_amount");
+
+  const origin = new URL(site());
+  if (
+    origin.protocol !== "https:" &&
+    !(config.mode === "test" && origin.origin === "http://localhost:5173")
+  )
+    throw new Error("payment_configuration");
+  const payments = stripe(config);
+  await verifyStripeAccount(payments, config);
+  if (item) await signedFile(item.slug);
+
   const client = db();
-  const { data: fan, error: fanError } = await client
-    .from("fans")
-    .select("email_normalized")
-    .eq("id", claims.sub)
-    .eq("artist_id", catalog.artistId)
-    .single();
-  if (fanError || !fan) throw new Error("unauthorized");
+  const itemSlug = item?.slug ?? null;
   const { error: insertError } = await client.from("checkout_attempts").upsert(
     {
       id: b.requestId,
       artist_id: catalog.artistId,
-      fan_id: claims.sub,
+      fan_id: fanId,
       purpose: b.purpose,
-      item_slug: b.purpose === "tip" ? null : b.itemSlug,
+      item_slug: itemSlug,
       amount_minor: amount,
       currency: catalog.currency,
-      analytics_consent: b.analyticsConsent,
+      analytics_consent: !guest && b.analyticsConsent === true,
+      payment_mode: config.mode,
+      stripe_account_id: config.accountId,
+      guest_token_hash: guestHash,
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
   if (insertError) throw new Error("database_unavailable");
   const { data: attempt, error } = await client
     .from("checkout_attempts")
-    .select("*")
+    .select(
+      "id,fan_id,purpose,item_slug,amount_minor,analytics_consent,payment_mode,stripe_account_id,guest_token_hash,status,expires_at,created_at,stripe_session_id,checkout_url",
+    )
     .eq("id", b.requestId)
     .eq("artist_id", catalog.artistId)
     .single();
   if (error || !attempt) throw new Error("database_unavailable");
   if (
-    attempt.fan_id !== claims.sub ||
+    attempt.fan_id !== fanId ||
+    attempt.guest_token_hash !== guestHash ||
     attempt.amount_minor !== amount ||
     attempt.purpose !== b.purpose ||
-    attempt.item_slug !== (b.purpose === "tip" ? null : b.itemSlug)
+    attempt.item_slug !== itemSlug ||
+    attempt.payment_mode !== config.mode ||
+    attempt.stripe_account_id !== config.accountId ||
+    !["draft", "pending_payment"].includes(attempt.status) ||
+    Date.parse(attempt.expires_at) <= Date.now()
   )
     throw new Error("request_conflict");
-  if (
-    attempt.status === "completed" ||
-    new Date(attempt.expires_at).getTime() <= Date.now()
-  )
-    throw new Error("request_conflict");
-  const issued = Math.floor(new Date(attempt.created_at).getTime() / 1000);
+
+  const issued = Math.floor(Date.parse(attempt.created_at) / 1000);
   const statusToken = await token("status", attempt.id, 7 * 86400, issued);
-  if (
-    attempt.stripe_session_id &&
-    !attempt.stripe_session_id.startsWith("cs_test_")
-  )
-    throw new Error("stripe_test_mode_required");
-  const session = attempt.checkout_url
-    ? { id: attempt.stripe_session_id, url: attempt.checkout_url }
-    : await payments.checkout.sessions.create(
-        {
-          mode: "payment",
-          customer_email: fan.email_normalized,
-          client_reference_id: attempt.id,
-          line_items: [
-            {
-              price_data: {
-                currency: catalog.currency,
-                unit_amount: amount,
-                product_data: {
-                  name:
-                    b.purpose === "tip"
-                      ? "Support Jona Ferreira"
-                      : item?.slug === testItemSlug
-                        ? "Acción — Hi-Res Artwork & Wallpapers"
-                        : `Vault: ${item?.slug}`,
-                },
-              },
-              quantity: 1,
-            },
-          ],
-          success_url: `${site()}/?checkout=return#status=${encodeURIComponent(statusToken)}`,
-          cancel_url: `${site()}/?checkout=cancel#status=${encodeURIComponent(statusToken)}`,
-          expires_at: Math.floor(new Date(attempt.expires_at).getTime() / 1000),
-          metadata: {
-            attempt_id: attempt.id,
-            artist_id: catalog.artistId,
-            fan_id: claims.sub,
-            item_slug: item?.slug ?? "",
-            ...(testing ? { test_flow: "accion-operator" } : {}),
-          },
-          payment_intent_data: {
-            metadata: {
-              attempt_id: attempt.id,
-              artist_id: catalog.artistId,
-              ...(testing ? { test_flow: "accion-operator" } : {}),
-            },
-          },
-        },
-        { idempotencyKey: `checkout:${attempt.id}` },
-      );
-  const { error: updateError } = await client
-    .from("checkout_attempts")
-    .update({
-      stripe_session_id: session.id,
-      checkout_url: session.url,
-      status: "pending_payment",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", attempt.id)
-    .in("status", ["draft", "pending_payment"]);
-  if (updateError) throw new Error("database_unavailable");
-  const { error: eventError } = await client.from("fan_events").upsert(
-    {
+  const eventId = `checkout:${attempt.id}`;
+  let url = attempt.checkout_url;
+  if (url !== null) {
+    if (!checkoutUrl(url) || !attemptModeMatches(attempt, config))
+      throw new Error("payment_configuration");
+  } else {
+    let email: string | undefined;
+    if (fanId) {
+      const { data: fan, error: fanError } = await client
+        .from("fans")
+        .select("email_normalized")
+        .eq("id", fanId)
+        .eq("artist_id", catalog.artistId)
+        .single();
+      if (fanError || !fan) throw new Error("unauthorized");
+      email = fan.email_normalized;
+    }
+    const metadata = {
+      attempt_id: attempt.id,
       artist_id: catalog.artistId,
-      fan_id: claims.sub,
-      event_type: "checkout_started",
-      event_id: `checkout:${attempt.id}`,
-      source: "support_modal",
-    },
-    { onConflict: "event_id", ignoreDuplicates: true },
-  );
-  if (eventError) throw new Error("database_unavailable");
-  if (b.analyticsConsent)
-    await enqueue(claims.sub, "meta", `meta:checkout:${attempt.id}`, {
-      event: "InitiateCheckout",
-      eventId: `checkout:${attempt.id}`,
-      amountMinor: amount,
-      currency: catalog.currency,
-    });
-  return {
-    attemptId: attempt.id,
-    statusToken,
-    url: session.url,
-    eventId: `checkout:${attempt.id}`,
-  };
+      purpose: b.purpose as string,
+      ...(operator ? { test_flow: "accion-operator" } : {}),
+    };
+    const session = await payments.checkout.sessions.create(
+      {
+        mode: "payment",
+        ...(guest && config.mode === "live"
+          ? {
+              payment_method_types: ["card"],
+              adaptive_pricing: { enabled: false },
+            }
+          : {}),
+        ...(guest
+          ? { integration_identifier: "jona-d2fan-support-prjxwdha" }
+          : {}),
+        ...(email ? { customer_email: email } : {}),
+        client_reference_id: attempt.id,
+        line_items: [
+          {
+            price_data: {
+              currency: catalog.currency,
+              unit_amount: amount,
+              product_data: {
+                name: !item
+                  ? "Support Jona Ferreira"
+                  : item.slug === testItemSlug
+                    ? "Acción — Hi-Res Artwork & Wallpapers"
+                    : `Vault: ${item.slug}`,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${origin.origin}/?checkout=return#status=${encodeURIComponent(statusToken)}`,
+        cancel_url: `${origin.origin}/?checkout=cancel#status=${encodeURIComponent(statusToken)}`,
+        expires_at: Math.floor(Date.parse(attempt.expires_at) / 1000),
+        metadata: {
+          ...metadata,
+          ...(fanId ? { fan_id: fanId, item_slug: itemSlug ?? "" } : {}),
+        },
+        payment_intent_data: { metadata },
+      },
+      { idempotencyKey: eventId },
+    );
+    if (
+      !stripeModeMatches(session, config.mode) ||
+      !checkoutSessionIdMatches(session.id, config.mode) ||
+      session.mode !== "payment" ||
+      session.client_reference_id !== attempt.id ||
+      session.amount_total !== amount ||
+      session.currency !== catalog.currency ||
+      !checkoutUrl(session.url)
+    )
+      throw new Error("payment_configuration");
+    const { data: saved, error: updateError } = await client
+      .from("checkout_attempts")
+      .update({
+        stripe_session_id: session.id,
+        checkout_url: session.url,
+        status: "pending_payment",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", attempt.id)
+      .in("status", ["draft", "pending_payment"])
+      .select("id")
+      .maybeSingle();
+    if (updateError) throw new Error("database_unavailable");
+    if (!saved) throw new Error("request_conflict");
+    url = session.url;
+  }
+
+  if (fanId) {
+    const { error: eventError } = await client.from("fan_events").upsert(
+      {
+        artist_id: catalog.artistId,
+        fan_id: fanId,
+        event_type: "checkout_started",
+        event_id: eventId,
+        source: "support_modal",
+      },
+      { onConflict: "event_id", ignoreDuplicates: true },
+    );
+    if (eventError) throw new Error("database_unavailable");
+    if (attempt.analytics_consent && b.analyticsConsent === true)
+      await enqueue(fanId, "meta", `meta:checkout:${attempt.id}`, {
+        event: "InitiateCheckout",
+        eventId,
+        amountMinor: amount,
+        currency: catalog.currency,
+      });
+  }
+  return { attemptId: attempt.id, statusToken, url, eventId };
 }
 export async function checkoutStatus(
   _req: Request,
@@ -331,14 +398,31 @@ export async function checkoutStatus(
     .eq("artist_id", catalog.artistId)
     .single();
   if (error || !a) throw new Error("unauthorized");
+  let resumeUrl: string | undefined;
+  if (a.status === "pending_payment" && checkoutUrl(a.checkout_url)) {
+    try {
+      const config = paymentConfiguration();
+      const enabled =
+        a.purpose === "tip"
+          ? Deno.env.get("SUPPORT_ENABLED") === "true"
+          : config.mode === "test" &&
+            (Deno.env.get("COMMERCE_ENABLED") === "true" ||
+              (Deno.env.get("ACCION_TEST_CHECKOUT") === "true" &&
+                site() === "http://localhost:5173"));
+      if (enabled && attemptModeMatches(a, config)) resumeUrl = a.checkout_url;
+    } catch {
+      // Financial status remains readable after checkout admission is withdrawn.
+    }
+  }
   const result: CheckoutStatus = {
     status: a.status,
-    checkoutUrl: a.status === "pending_payment" ? a.checkout_url : undefined,
+    checkoutUrl: resumeUrl,
     amountMinor: a.amount_minor,
     currency: a.currency,
     purpose: a.purpose,
-    itemSlug: a.item_slug,
-    delivery: captureEmailConfigured() ? "unknown" : "disabled",
+    itemSlug: a.item_slug ?? undefined,
+    delivery:
+      a.fan_id !== null && captureEmailConfigured() ? "unknown" : "disabled",
   };
   if (a.status === "completed") {
     const { data: p, error: pError } = await db()
@@ -349,6 +433,7 @@ export async function checkoutStatus(
     if (pError || !p) throw new Error("database_unavailable");
     result.status = p.status === "refunded" ? "refunded" : "completed";
     result.eventId = `purchase:${p.id}`;
+    if (a.fan_id === null) return result;
     if (p.status !== "refunded" && a.purpose === "vault_unlock")
       result.accessToken = await token("access", p.id, 900);
     const { data: job, error: jobError } = await db()

@@ -49,15 +49,22 @@ export interface RecoveryResponse {
   // Older deployed recovery functions return only a generic message.
   delivery?: "disabled" | "requested";
 }
-export interface CheckoutRequest {
-  operatorTestToken?: string;
-  requestId: string;
-  captureToken: string;
-  purpose: "tip" | "vault_unlock";
-  amountMinor?: number;
-  itemSlug?: string;
-  analyticsConsent: boolean;
-}
+export type CheckoutRequest = { requestId: string } & (
+  | {
+      purpose: "tip";
+      amountMinor: number;
+      guestToken: string;
+      operatorTestToken?: never;
+    }
+  | {
+      purpose: "vault_unlock";
+      captureToken: string;
+      itemSlug: string;
+      amountMinor?: number;
+      analyticsConsent: boolean;
+      operatorTestToken?: string;
+    }
+);
 export interface CheckoutResponse {
   attemptId: string;
   statusToken: string;

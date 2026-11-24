@@ -402,6 +402,18 @@ img {
 .support-continue {
   width: 100%;
 }
+.support-refund-policy summary {
+  color: var(--bone-0);
+  cursor: pointer;
+}
+.support-refund-policy p {
+  margin-top: 8px;
+}
+.support-payment-link {
+  color: var(--bone-0);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .form-status {
   min-height: 18px;
   font-size: 13px !important;
@@ -590,6 +602,12 @@ img {
   padding: 16px 56px 24px;
   background: var(--ink-2);
   border-top: 1px solid var(--line-control);
+}
+.support-checkout-note {
+  margin: 0 0 12px;
+}
+.dialog-footer > .form-status:empty {
+  min-height: 0;
 }
 .dialog-footer .form-actions {
   position: static;

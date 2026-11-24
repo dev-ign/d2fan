@@ -85,7 +85,7 @@ export function Header({
             <LanguageMenu />
             {variant === "home" && (
               <>
-                {runtime.commerceEnabled && (
+                {runtime.supportEnabled && (
                   <button
                     className="button button--lime support-header"
                     onClick={onSupport}

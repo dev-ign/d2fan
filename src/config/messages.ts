@@ -41,11 +41,11 @@ const formMessages = {
     captureConflict: "Please try again to start a fresh wallpaper request.",
     captureRateLimit: "Please wait a minute before trying again.",
     captureRetry: "Back to the form",
-    tax: "Support is a tip / payment to the artist — not a charitable donation, and not tax-deductible.",
+    tax: "Your contribution is a tip to the artist, with no charitable donation status or tax deduction. Vault access and mailing-list signup are separate.",
     refund:
       "Digital access is delivered after confirmed payment. Contact the artist for refund requests; a full refund revokes access. Your statutory rights apply.",
     support:
-      "Every contribution goes directly toward creating and releasing independent music.",
+      "Make a voluntary contribution to Jona Ferreira’s independent music and creative work.",
     unavailable: "This piece is being prepared. Paid access is not open yet.",
     amountError:
       "Choose an amount from $5 to $1,000, with up to two decimal places.",
@@ -95,10 +95,11 @@ const formMessages = {
       "Vuelve a intentarlo para iniciar una nueva solicitud del wallpaper.",
     captureRateLimit: "Espera un minuto antes de volver a intentarlo.",
     captureRetry: "Volver al formulario",
-    tax: "El apoyo es un pago al artista, no una donación benéfica ni deducible de impuestos.",
+    tax: "Tu aporte es una propina para el artista, sin carácter de donación benéfica ni derecho a una deducción fiscal. El acceso a Vault y la suscripción a la lista de correo son independientes.",
     refund:
       "El acceso digital se entrega tras confirmar el pago. Contacta al artista para pedir un reembolso; un reembolso total revoca el acceso. Se respetan tus derechos legales.",
-    support: "Cada aporte ayuda a crear y publicar música independiente.",
+    support:
+      "Haz un aporte voluntario a la música independiente y al trabajo creativo de Jona Ferreira.",
     unavailable: "Estamos preparando esta pieza. Todavía no está a la venta.",
     amountError: "Elige entre $5 y $1,000, con un máximo de dos decimales.",
     requestError:

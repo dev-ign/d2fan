@@ -15,9 +15,11 @@ import {
   env,
 } from "../supabase/functions/_shared/platform.ts";
 
+import { paymentConfiguration } from "../supabase/functions/_shared/payments.ts";
+
 if (Deno.env.get("ACCION_TEST_CHECKOUT") !== "true")
   throw new Error("Test mode required");
-if (!/^(sk|rk)_test_/.test(env("STRIPE_SECRET_KEY")))
+if (paymentConfiguration().mode !== "test")
   throw new Error("Stripe test key required");
 
 const handlers: Record<string, (req: Request) => Promise<Response>> = {

@@ -15,7 +15,8 @@ for (const width of [390, 1440]) {
     page,
   }) => {
     test.skip(
-      process.env.VITE_COMMERCE_ENABLED !== "false",
+      process.env.VITE_COMMERCE_ENABLED !== "false" ||
+        process.env.VITE_SUPPORT_ENABLED === "true",
       "Run Stage A checks with VITE_COMMERCE_ENABLED=false.",
     );
     await page.setViewportSize({ width, height: 920 });
@@ -58,7 +59,7 @@ for (const width of [390, 1440]) {
       await expect(
         page
           .locator("#site-menu")
-          .getByRole("button", { name: "SUPPORT THE JOURNEY" }),
+          .getByRole("button", { name: "SUPPORT THE MUSIC" }),
       ).toHaveCount(0);
       await page.keyboard.press("Escape");
     }
@@ -100,7 +101,8 @@ test("Stage A hides saved checkout resume and restart actions", async ({
   page,
 }) => {
   test.skip(
-    process.env.VITE_COMMERCE_ENABLED !== "false",
+    process.env.VITE_COMMERCE_ENABLED !== "false" ||
+      process.env.VITE_SUPPORT_ENABLED === "true",
     "Run Stage A checks with VITE_COMMERCE_ENABLED=false.",
   );
   await page.route("**/functions/v1/checkout-status", (route) =>

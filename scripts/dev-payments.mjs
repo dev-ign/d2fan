@@ -68,6 +68,8 @@ run(
     SUPABASE_URL: front.VITE_SUPABASE_URL,
     PUBLIC_SITE_URL: "http://localhost:5173",
     ALLOWED_ORIGINS: "http://localhost:5173",
+    STRIPE_PAYMENT_MODE: "test",
+    STRIPE_ACCOUNT_ID: "acct_1UU6trFaxpknY0U7",
     ACCION_TEST_CHECKOUT: "true",
     ACCION_TEST_TOKEN_SECRET: randomBytes(32).toString("hex"),
   },
