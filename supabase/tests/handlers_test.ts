@@ -53,8 +53,6 @@ Deno.test(
       "PRIVATE_FILE_PATHS",
       JSON.stringify({
         "lead-magnet": "legacy.jpg",
-        "la-cultura-mobile": "mobile.jpg",
-        "la-cultura-desktop": "desktop.jpg",
       }),
     );
     globalThis.fetch = (input, init) => {
@@ -80,9 +78,9 @@ Deno.test(
       }
       if (url.pathname.includes("/storage/v1/object/sign/")) {
         const asset = url.pathname.split("/").at(-1)!;
-        paths.push(asset);
+        paths.push(url.pathname);
         assert(JSON.parse(String(init?.body)).expiresIn === 300);
-        if (asset === "desktop.jpg" && desktopMissing)
+        if (asset === "la-cultura-desktop-3840x2160.jpg" && desktopMissing)
           return Promise.resolve(
             Response.json({ message: "Object not found" }, { status: 400 }),
           );
@@ -113,6 +111,16 @@ Deno.test(
         result.wallpaperLinks?.map((link) => link.device).join(",") ===
           "mobile,desktop",
       );
+      for (const file of [
+        "la-cultura-mobile-1206x2622.jpg",
+        "la-cultura-desktop-3840x2160.jpg",
+      ]) {
+        assert(
+          paths.includes(
+            `/storage/v1/object/sign/vault-private/rewards/la-cultura/${file}`,
+          ),
+        );
+      }
       desktopMissing = true;
       assert(!(await captureFan(req, body)).wallpaperLinks);
       desktopMissing = false;

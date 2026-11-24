@@ -6,6 +6,21 @@ const siteUrl = "https://jonaferreira.com";
 
 export const getReleaseUrl = (slug: string) => `${siteUrl}/music/${slug}`;
 
+export function resolveReleasePublication(
+  release: MusicRelease,
+  serverTime?: number,
+): MusicRelease {
+  if (
+    release.publishAt &&
+    release.publicationStatus === "upcoming" &&
+    serverTime !== undefined &&
+    serverTime >= Date.parse(release.publishAt)
+  ) {
+    return { ...release, publicationStatus: "released" };
+  }
+  return release;
+}
+
 export function formatReleaseDate(date: string, locale: Locale) {
   return new Intl.DateTimeFormat(locale === "es" ? "es" : "en-US", {
     month: "long",
@@ -26,8 +41,8 @@ export function getReleaseMetadata(release: MusicRelease, locale: Locale) {
     const date = formatReleaseDate(release.releaseDate, locale);
     description =
       locale === "es"
-        ? `${release.title}, el nuevo sencillo de ${credit}, llega el ${date}.`
-        : `${release.title}, the new single by ${credit}, arrives ${date}.`;
+        ? `${release.title}, un sencillo de ${credit}. ${date}.`
+        : `${release.title}, a single by ${credit}. ${date}.`;
   }
   const url = getReleaseUrl(release.slug);
   const image = `${siteUrl}${release.coverArt}`;

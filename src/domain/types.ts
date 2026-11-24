@@ -22,6 +22,7 @@ export interface MusicRelease {
   artistCredit?: string;
   releaseDate: string;
   publicationStatus?: "upcoming" | "released";
+  publishAt?: string;
   distributionStatus?: "approved";
   upc?: string;
   catalogNumber?: string;

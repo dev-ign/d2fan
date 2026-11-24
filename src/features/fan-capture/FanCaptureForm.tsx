@@ -316,11 +316,7 @@ export function FanCaptureForm({ releaseSlug }: { releaseSlug?: string }) {
               type="submit"
               disabled={state === "loading"}
             >
-              {state === "loading"
-                ? t.saving
-                : pack
-                  ? t.wallpapers.join
-                  : t.forms.join}
+              {state === "loading" ? t.saving : t.forms.join}
             </button>
           </div>
           {!compact && (

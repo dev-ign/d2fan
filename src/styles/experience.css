@@ -843,18 +843,9 @@ html[data-experience="home"] {
   width: 20px;
   height: 20px;
 }
-.wallpaper-offer {
-  grid-column: 1;
-  margin-block: 24px;
-}
-.wallpaper-offer h3 {
-  margin: 0 0 6px;
-  font-size: 17px;
-}
-.wallpaper-offer p {
-  margin: 0;
+.wallpaper-offer-detail {
+  display: block;
   color: var(--bone-soft);
-  font-size: 13px;
 }
 .wallpaper-preview {
   display: grid;
@@ -876,6 +867,14 @@ html[data-experience="home"] {
   grid-row: 1 / 4;
   align-self: center;
   justify-self: end;
+  gap: 0;
+}
+.stay-content > .wallpaper-preview img:first-child {
+  rotate: -2deg;
+}
+.stay-content > .wallpaper-preview img:last-child {
+  translate: -18% 7%;
+  rotate: 3deg;
 }
 .release-capture > .wallpaper-preview {
   width: min(100%, 206px);
@@ -1645,7 +1644,7 @@ html[data-experience="home"] {
     grid-column: 1;
     grid-row: auto;
     justify-self: start;
-    width: min(100%, 290px);
+    width: min(100%, 250px);
     margin-bottom: 24px;
   }
   .release-capture > .wallpaper-preview {

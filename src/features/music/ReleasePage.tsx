@@ -20,16 +20,20 @@ import { runtime } from "../../config/runtime";
 import { useAudio } from "../../hooks/useAudio";
 import { useSectionMotion } from "../../hooks/useSectionMotion";
 import { artist } from "../../data/content";
-import { formatReleaseDate } from "../../data/releaseMetadata";
+import {
+  formatReleaseDate,
+  resolveReleasePublication,
+} from "../../data/releaseMetadata";
 import { StreamingLinks } from "./StreamingLinks";
 import { ReleaseShare } from "./ReleaseShare";
 
-export function ReleasePage() {
+export function ReleasePage({ serverTime }: { serverTime?: number }) {
   const { t, locale } = useLocale();
   const { slug } = useParams();
-  const [release, setRelease] = useState<MusicRelease | null | undefined>(
+  const [entry, setRelease] = useState<MusicRelease | null | undefined>(
     undefined,
   );
+  const release = entry && resolveReleasePublication(entry, serverTime);
   const audio = useAudio();
   const scope = useSectionMotion(release?.id ?? false);
   useEffect(() => {
@@ -172,7 +176,7 @@ export function ReleasePage() {
                 </h2>
                 <p>
                   {runtime.laCulturaWallpapers
-                    ? t.wallpapers.description
+                    ? t.wallpapers.releaseIntro
                     : release.campaignId
                       ? t.stay.campaignIntro
                       : t.stay.releaseIntro}

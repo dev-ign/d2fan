@@ -26,6 +26,7 @@ export const releases: MusicRelease[] = [
     artistCredit: "Jona Ferreira & SBFaraon",
     releaseDate: "2026-11-27",
     publicationStatus: "upcoming",
+    publishAt: "2026-11-27T05:00:00Z",
     distributionStatus: "approved",
     upc: "708208533336",
     catalogNumber: "CAT2529872",

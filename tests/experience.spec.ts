@@ -289,6 +289,50 @@ test("SayYouLuvMe landing shares the campaign and preserves optional signup cons
   await expect(page).toHaveURL("/#music");
 });
 
+test("SayYouLuvMe publishes at midnight Eastern on the server clock without exposing audio", async ({
+  page,
+}) => {
+  const midnight = Date.parse("2026-11-27T05:00:00Z");
+  let serverNow = midnight - 1_000;
+  await page.clock.setFixedTime(new Date("2026-12-01T00:00:00Z"));
+  await page.route("**/api/release-clock", (route) =>
+    route.fulfill({ json: { now: serverNow } }),
+  );
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#music");
+  await expect(
+    page.getByRole("link", { name: "Upcoming release: SayYouLuvMe" }),
+  ).toBeVisible();
+  const catalog = page.locator("#music");
+  const single = catalog.getByRole("button", {
+    name: "SayYouLuvMe",
+    exact: true,
+  });
+  await expect(single).toHaveCount(0);
+  await catalog
+    .getByRole("button", { name: "Darte Nota", exact: true })
+    .click();
+  serverNow = midnight;
+
+  await expect(
+    page.getByRole("link", { name: "Latest release: SayYouLuvMe" }),
+  ).toBeVisible();
+  await expect(single).toBeVisible();
+  await expect(catalog.locator(".release-head h3")).toHaveText("Darte Nota");
+  await single.click();
+  await expect(catalog).toContainText("Out now");
+  await expect(
+    catalog.getByRole("button", { name: /Play SayYouLuvMe preview/ }),
+  ).toHaveCount(0);
+  await catalog.getByRole("link", { name: "Release page" }).click();
+  await expect(page.locator(".release-date")).toContainText("Out now");
+  await expect(page.locator(".preview-action, .stream-links")).toHaveCount(0);
+
+  await page.locator(".language-trigger").click();
+  await page.getByRole("menuitemradio", { name: /ES/ }).click();
+  await expect(page.locator(".release-date")).toContainText("Ya disponible");
+});
+
 test("the featured catalog and every release page share the same streaming destinations", async ({
   page,
 }) => {

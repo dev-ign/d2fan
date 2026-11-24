@@ -23,9 +23,9 @@ test("La Cultura offers two signed wallpapers and keeps marketing optional", asy
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#stay-close");
   const stay = page.locator("#stay-close");
-  await expect(
-    stay.getByRole("heading", { name: "Get the La Cultura wallpapers" }),
-  ).toBeVisible();
+  await expect(stay.locator(".incentive")).toContainText(
+    "Exclusive La Cultura wallpapers, free.",
+  );
   await expect(
     stay.getByRole("img", { name: /desktop wallpaper preview/i }),
   ).toHaveJSProperty("naturalWidth", 576);
@@ -73,6 +73,14 @@ test("La Cultura offers two signed wallpapers and keeps marketing optional", asy
     page.getByRole("heading", { name: "SayYouLuvMe" }),
   ).toBeVisible();
   await expect(
+    page.getByRole("link", {
+      name: "Consigue los wallpapers gratis de La Cultura",
+    }),
+  ).toHaveAttribute("href", "/music/sayyouluvme#release-signup");
+  await expect(signup).toContainText(
+    "¿Quieres enterarte de lo próximo de Jona? Llévate los wallpapers gratis de La Cultura y elige si quieres recibir novedades por correo.",
+  );
+  await expect(
     signup.getByLabel("Tu correo electrónico", { exact: true }),
   ).toBeVisible();
   await expect(signup.getByRole("checkbox")).not.toBeChecked();
@@ -84,17 +92,17 @@ test("La Cultura offers two signed wallpapers and keeps marketing optional", asy
     await signup
       .getByLabel("Tu correo electrónico", { exact: true })
       .fill("fan@example.com");
-    await signup.getByRole("button", { name: "Únete a La Cultura" }).click();
+    await signup.getByRole("button", { name: "ÚNETE A LA CULTURA" }).click();
   };
   await join();
   const ready = signup.getByRole("region", {
     name: "¡Tus wallpapers están listos!",
   });
   await expect(
-    ready.getByRole("link", { name: "Wallpaper para celular" }),
+    ready.getByRole("link", { name: "Descargar wallpaper para celular" }),
   ).toHaveAttribute("href", mobile);
   await expect(
-    ready.getByRole("link", { name: "Wallpaper para computadora" }),
+    ready.getByRole("link", { name: "Descargar wallpaper para computadora" }),
   ).toHaveAttribute("href", desktop);
   await expect(ready).toContainText("Solo solicitaste los wallpapers.");
   await ready.screenshot({ path: `${output}/la-cultura-downloads-es.png` });
@@ -109,10 +117,12 @@ test("La Cultura offers two signed wallpapers and keeps marketing optional", asy
   await page.reload();
   await join();
   await expect(
-    signup.locator(".stay-reward-status").getByText(
-      "Los wallpapers de La Cultura no están disponibles por el momento. Inténtalo más tarde.",
-      { exact: true },
-    ),
+    signup
+      .locator(".stay-reward-status")
+      .getByText(
+        "Los wallpapers de La Cultura no están disponibles por el momento. Inténtalo más tarde.",
+        { exact: true },
+      ),
   ).toBeVisible();
   await expect(
     signup.locator('a[href="https://storage.example.com/signed-accion"]'),

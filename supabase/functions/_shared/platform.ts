@@ -124,6 +124,11 @@ export async function signedFile(slug: string) {
     !(paths as Record<string, string>)[slug].trim()
   )
     throw new FileSigningError("missing_mapping", "content_not_configured");
+  return signPrivateObject((paths as Record<string, string>)[slug]);
+}
+
+// Callers must supply a private object path from server configuration or an allowlist.
+export async function signPrivateObject(path: string) {
   let client: ReturnType<typeof db>;
   try {
     client = db();
@@ -139,7 +144,7 @@ export async function signedFile(slug: string) {
   try {
     result = await client.storage
       .from("vault-private")
-      .createSignedUrl((paths as Record<string, string>)[slug], 300, {
+      .createSignedUrl(path, 300, {
         download: true,
       });
   } catch (error) {

@@ -3,7 +3,10 @@ import { artist, releases } from "./content";
 import { localContentRepository } from "../repositories/localContentRepository";
 import type { MusicRelease } from "../domain/types";
 import { getStreamingLinks } from "../config/streaming";
-import { getReleaseMetadata } from "./releaseMetadata";
+import {
+  getReleaseMetadata,
+  resolveReleasePublication,
+} from "./releaseMetadata";
 import { existsSync } from "node:fs";
 
 const destinationPatterns: Record<
@@ -25,6 +28,7 @@ test("SayYouLuvMe is featured with verified metadata and unavailable for listeni
     slug: "sayyouluvme",
     title: "SayYouLuvMe",
     releaseDate: "2026-11-27",
+    publishAt: "2026-11-27T05:00:00Z",
     artistCredit: "Jona Ferreira & SBFaraon",
     coverArt: "/assets/sayyouloveme-cover2.jpg",
     campaignId: "sayyouluvme_2026",
@@ -38,6 +42,14 @@ test("SayYouLuvMe is featured with verified metadata and unavailable for listeni
     expect(release.streamingLinks).toEqual({});
   }
   const upcoming = { ...release, publicationStatus: "upcoming" as const };
+  const midnightEastern = Date.parse("2026-11-27T05:00:00Z");
+  expect(resolveReleasePublication(upcoming)).toBe(upcoming);
+  expect(resolveReleasePublication(upcoming, midnightEastern - 1)).toBe(
+    upcoming,
+  );
+  expect(
+    resolveReleasePublication(upcoming, midnightEastern).publicationStatus,
+  ).toBe("released");
   const streamingLinks = {
     spotify: "https://open.spotify.com/track/2x1GqWEEuPrYxcUsyBayhl",
   };
@@ -50,10 +62,10 @@ test("SayYouLuvMe is featured with verified metadata and unavailable for listeni
     }),
   ).toMatchObject([{ platform: "spotify", href: streamingLinks.spotify }]);
   expect(getReleaseMetadata(upcoming, "en").description).toContain(
-    "arrives November 27, 2026",
+    "November 27, 2026",
   );
   expect(getReleaseMetadata(upcoming, "es").description).toContain(
-    "llega el 27 de noviembre de 2026",
+    "27 de noviembre de 2026",
   );
   expect(
     getReleaseMetadata({ ...release, publicationStatus: "released" }, "es")

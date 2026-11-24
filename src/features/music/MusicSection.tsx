@@ -18,11 +18,12 @@ export function MusicSection({
   featuredReleaseId: string;
 }) {
   const { t, locale } = useLocale();
-  const [index, setIndex] = useState(() =>
-    Math.max(
-      releases.findIndex((release) => release.id === featuredReleaseId),
-      0,
+  const [selectedId, setSelectedId] = useState<string>();
+  const index = Math.max(
+    releases.findIndex(
+      (release) => release.id === (selectedId ?? featuredReleaseId),
     ),
+    0,
   );
   const indicators = useRef<HTMLDivElement>(null);
   const audio = useAudio();
@@ -69,7 +70,7 @@ export function MusicSection({
 
   function select(nextIndex: number) {
     const normalized = (nextIndex + releases.length) % releases.length;
-    setIndex(normalized);
+    setSelectedId(releases[normalized].id);
   }
   async function togglePreview() {
     if (audio.release?.id === active.id) await audio.toggle();
@@ -130,8 +131,10 @@ export function MusicSection({
                 </h3>
                 <p>
                   {active.artistCredit && <>{active.artistCredit} · </>}
-                  {t.common.single} ·{" "}
-                  {formatReleaseDate(active.releaseDate, locale)}
+                  {active.publicationStatus === "released"
+                    ? t.release.outNow
+                    : t.common.single}{" "}
+                  · {formatReleaseDate(active.releaseDate, locale)}
                 </p>
               </div>
             </div>

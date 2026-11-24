@@ -22,20 +22,20 @@ export function StayClose() {
             {runtime.laCulturaWallpapers ? t.wallpapers.intro : t.stay.intro}
           </p>
         </div>
-        {runtime.laCulturaWallpapers ? (
-          <>
-            <div className="wallpaper-offer">
-              <h3>{t.wallpapers.offer}</h3>
-              <p>{t.wallpapers.description}</p>
-            </div>
-            <WallpaperPreview />
-          </>
-        ) : (
-          <p className="incentive">
-            <img src="/assets/gift.svg" alt="" width="24" height="24" />{" "}
-            {t.stay.incentive}
-          </p>
-        )}
+        <p className="incentive">
+          <img src="/assets/gift.svg" alt="" width="24" height="24" />
+          {runtime.laCulturaWallpapers ? (
+            <span>
+              {t.wallpapers.incentive}
+              <span className="wallpaper-offer-detail">
+                {t.wallpapers.description}
+              </span>
+            </span>
+          ) : (
+            t.stay.incentive
+          )}
+        </p>
+        {runtime.laCulturaWallpapers && <WallpaperPreview />}
         <FanCaptureForm />
         {!runtime.laCulturaWallpapers && (
           <div className="reward-art" aria-hidden="true">

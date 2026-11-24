@@ -154,15 +154,18 @@ export const english = {
     join: "Join La Cultura",
     intro:
       "Be part of La Cultura. Connect with me, discover new music, and get exclusive content.",
-    offer: "Get the La Cultura wallpapers",
-    description: "Two free wallpapers for your phone and computer.",
+    offer: "Get the free La Cultura wallpapers",
+    releaseIntro:
+      "Want to hear what's next from Jona? Get the free La Cultura wallpapers and choose whether to receive updates by email.",
+    incentive: "Exclusive La Cultura wallpapers, free.",
+    description: "For your phone and computer.",
     desktopPreview:
       "Desktop wallpaper preview with La Cultura graffiti and palm tree",
     mobilePreview: "Mobile wallpaper preview with a black palm tree",
     email: "Your email address",
     disclosure:
-      "We use your email to fulfill the wallpaper request. The checkbox is optional. If you select it, confirm music updates by email.",
-    requested: "Wallpaper request saved.",
+      "We use your email to deliver the wallpapers. The checkbox is optional. If you select it, confirm music updates by email.",
+    requested: "We saved your wallpaper request.",
     captureSaved: "We saved your request for the La Cultura wallpapers.",
     ready: "Your wallpapers are ready!",
     readyMessage:
@@ -174,8 +177,8 @@ export const english = {
     emailAccepted:
       "Check your inbox and spam folder for the La Cultura download link.",
     rewardOnly: "You requested the wallpapers only.",
-    mobile: "Mobile wallpaper",
-    desktop: "Desktop wallpaper",
+    mobile: "Download mobile wallpaper",
+    desktop: "Download desktop wallpaper",
   },
   forms: {
     emailLabel: "YOUR EMAIL",
@@ -458,8 +461,11 @@ export const spanish: SiteMessages = {
     join: "Únete a La Cultura",
     intro:
       "Sé parte de La Cultura. Conecta conmigo, descubre nueva música y recibe contenido exclusivo.",
-    offer: "Consigue los wallpapers de La Cultura",
-    description: "Dos wallpapers gratis para tu celular y computadora.",
+    offer: "Consigue los wallpapers gratis de La Cultura",
+    releaseIntro:
+      "¿Quieres enterarte de lo próximo de Jona? Llévate los wallpapers gratis de La Cultura y elige si quieres recibir novedades por correo.",
+    incentive: "Wallpapers exclusivos de La Cultura, gratis.",
+    description: "Para tu celular y computadora.",
     desktopPreview:
       "Vista previa para computadora con el grafiti de La Cultura y una palmera",
     mobilePreview: "Vista previa para celular con una palmera negra",
@@ -478,8 +484,8 @@ export const spanish: SiteMessages = {
     emailAccepted:
       "Revisa tu bandeja de entrada y correo no deseado para encontrar el enlace de La Cultura.",
     rewardOnly: "Solo solicitaste los wallpapers.",
-    mobile: "Wallpaper para celular",
-    desktop: "Wallpaper para computadora",
+    mobile: "Descargar wallpaper para celular",
+    desktop: "Descargar wallpaper para computadora",
   },
   forms: {
     emailLabel: "TU CORREO",
