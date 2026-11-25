@@ -14,6 +14,7 @@ import { campaignLink } from "../../data/campaignLink";
 import { studioRequest } from "./client";
 import { contentIdeas, contentPillars, ideaCopy } from "./contentIdeas";
 import { StudioHeading } from "./StudioViews";
+import { CreativeAssistant } from "./CreativeAssistant";
 import { ContentPublishing } from "./ContentPublishing";
 
 export type EditorRecord = {
@@ -286,6 +287,14 @@ export function ContentEditor({
                 <Sparkles size={16} aria-hidden="true" /> Fill empty copy from a
                 template
               </button>
+              <CreativeAssistant
+                accessToken={accessToken}
+                fields={fields}
+                song={release?.title}
+                apply={(copy) =>
+                  setFields((current) => ({ ...current, ...copy }))
+                }
+              />
               <label>
                 Hook
                 <input

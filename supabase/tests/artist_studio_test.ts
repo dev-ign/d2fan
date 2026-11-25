@@ -111,6 +111,9 @@ Deno.test(
         [request("untrusted-token"), 401, "unauthenticated"],
         [request(other), 403, "forbidden"],
         [request(low), 403, "mfa_required"],
+        [request(low, { view: "instagram_start" }), 403, "mfa_required"],
+        [request(other, { view: "creative_generate" }), 403, "forbidden"],
+        [request(high, { view: "instagram_start" }), 403, "session_required"],
         [request(other, save), 403, "forbidden"],
         [request(low, save), 403, "mfa_required"],
         [

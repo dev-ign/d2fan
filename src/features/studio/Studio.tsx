@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import {
   Activity,
@@ -30,6 +30,7 @@ import {
   useStudioRequest,
 } from "./client";
 import { StudioAuthCard, StudioMfa, StudioSignIn } from "./StudioAuth";
+import type { InstagramCallback } from "./ContentSocial";
 import { StudioContent } from "./StudioContent";
 import { StudioOwnerSetup } from "./StudioOwnerSetup";
 import {
@@ -53,15 +54,22 @@ const navigation = [
   { path: "/readiness", label: "Readiness", Icon: Activity },
 ];
 
+interface StudioOAuth {
+  instagram?: InstagramCallback;
+  clearInstagram: () => void;
+}
+
 function StudioWorkspace({
   session,
   readiness,
   signOut,
+  instagram,
+  clearInstagram,
 }: {
   session: Session;
   readiness: StudioReadiness;
   signOut: () => void;
-}) {
+} & StudioOAuth) {
   const accessToken = session.access_token;
   const overview = useStudioRequest<StudioReport>(accessToken, {
     view: "report",
@@ -118,7 +126,13 @@ function StudioWorkspace({
             />
             <Route
               path="content"
-              element={<StudioContent accessToken={accessToken} />}
+              element={
+                <StudioContent
+                  accessToken={accessToken}
+                  callback={instagram}
+                  clearCallback={clearInstagram}
+                />
+              }
             />
             <Route path="fans" element={<Fans accessToken={accessToken} />} />
             <Route
@@ -157,11 +171,12 @@ function StudioGate({
   client,
   session,
   signOut,
+  ...oauth
 }: {
   client: SupabaseClient;
   session: Session;
   signOut: () => void;
-}) {
+} & StudioOAuth) {
   const access = useStudioRequest<StudioReadiness>(session.access_token, {
     view: "session",
   });
@@ -171,6 +186,7 @@ function StudioGate({
         session={session}
         readiness={access.data}
         signOut={signOut}
+        {...oauth}
       />
     );
   if (access.error === "mfa_required")
@@ -206,7 +222,10 @@ function StudioGate({
   );
 }
 
-function StudioSession({ client }: { client: SupabaseClient }) {
+function StudioSession({
+  client,
+  ...oauth
+}: { client: SupabaseClient } & StudioOAuth) {
   const [session, setSession] = useState<Session | null>();
   const [ownerLink, setOwnerLink] = useState(readOwnerLink);
   const [signOutError, setSignOutError] = useState<"local" | "global">();
@@ -227,6 +246,7 @@ function StudioSession({ client }: { client: SupabaseClient }) {
 
   async function signOut(scope: "local" | "global" = "local") {
     setSession(undefined);
+    oauth.clearInstagram();
     setSignOutError(undefined);
     try {
       const { error } = await client.auth.signOut({ scope });
@@ -276,11 +296,27 @@ function StudioSession({ client }: { client: SupabaseClient }) {
       client={client}
       session={session}
       signOut={() => void signOut()}
+      {...oauth}
     />
   );
 }
 
 export default function Studio() {
+  const [instagram, setInstagram] = useState<InstagramCallback | undefined>(
+    () => {
+      if (location.pathname !== "/studio/content") return;
+      const params = new URLSearchParams(location.search);
+      if (params.get("error") === "access_denied") return { denied: true };
+      const state = params.get("state");
+      if (!state || !/^[a-f\d-]{72}$/.test(state)) return;
+      const code = params.get("code");
+      if (code && code.length <= 2048) return { code, state };
+    },
+  );
+  useLayoutEffect(() => {
+    if (instagram && location.search)
+      history.replaceState(history.state, "", location.pathname);
+  }, [instagram]);
   useEffect(() => {
     document.title = "Artist Studio — Jona Ferreira";
     const robots = document.createElement("meta");
@@ -291,7 +327,11 @@ export default function Studio() {
   }, []);
 
   return studioClient ? (
-    <StudioSession client={studioClient} />
+    <StudioSession
+      client={studioClient}
+      instagram={instagram}
+      clearInstagram={() => setInstagram(undefined)}
+    />
   ) : (
     <StudioAuthCard title="Studio setup required">
       <p>A private data environment is required for this deployment.</p>

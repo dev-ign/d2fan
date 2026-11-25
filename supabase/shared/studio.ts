@@ -1,3 +1,5 @@
+import type { CreativeRequest } from "./studio-creative.ts";
+import type { InstagramRequest } from "./studio-instagram.ts";
 import type { ContentRequest } from "./studio-content.ts";
 
 export interface StudioReadiness {
@@ -69,6 +71,8 @@ export type StudioRequest =
   | { view: "session" }
   | { view: "report"; campaign: string }
   | { view: "fans"; search: string; page: number }
-  | ContentRequest;
+  | ContentRequest
+  | CreativeRequest
+  | InstagramRequest;
 
 export const studioPageSize = 25;

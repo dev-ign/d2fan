@@ -49,7 +49,11 @@ export async function studioRequest<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   if (!url || !publishableKey) throw new StudioRequestError("unavailable");
-  const timeout = AbortSignal.timeout(10_000);
+  const timeout = AbortSignal.timeout(
+    typeof request !== "string" && request.view === "instagram_finish"
+      ? 18_000
+      : 10_000,
+  );
   const result = await fetch(
     `${url.replace(/\/$/, "")}/functions/v1/artist-studio`,
     {

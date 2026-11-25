@@ -80,6 +80,57 @@ export const contentIdeas = [
       "Conoce La Cultura en mi web.",
     ],
   },
+  {
+    title: "Introduce the release in a Story",
+    pillar: "Release announcement",
+    format: "ig_story",
+    direction:
+      "Record a 10–15 second introduction and add a distinct Link sticker to the release page.",
+    en: [
+      "Here’s a song I want you to hear.",
+      "A little of what I’ve been making.",
+      "Tap to hear the preview.",
+    ],
+    es: [
+      "Quiero que escuches esta canción.",
+      "Un poquito de lo que he estado haciendo.",
+      "Toca para escuchar el adelanto.",
+    ],
+  },
+  {
+    title: "Make a late-night drive teaser",
+    pillar: "Music visualizer",
+    format: "ig_reel",
+    direction:
+      "Pair 10–15 seconds of approved audio with night footage you own. Keep the strongest musical moment up front.",
+    en: [
+      "For the late-night drive.",
+      "Play this one after dark.",
+      "Find the song on my site.",
+    ],
+    es: [
+      "Para cuando cae la noche.",
+      "Pon esta cuando oscurezca.",
+      "Encuentra la canción en mi web.",
+    ],
+  },
+  {
+    title: "Prepare a collaborator Story",
+    pillar: "Collaboration",
+    format: "ig_story",
+    direction:
+      "If a collaborator agrees, prepare a 15-second Story and a distinct tracked link for their audience.",
+    en: [
+      "One for your headphones.",
+      "A moment from the song for anyone hearing it for the first time.",
+      "Tap to hear the preview.",
+    ],
+    es: [
+      "Una para los audífonos.",
+      "Un pedacito para quienes la escuchan por primera vez.",
+      "Toca para escuchar el adelanto.",
+    ],
+  },
 ] as const;
 
 export function ideaCopy(
