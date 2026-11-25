@@ -531,15 +531,13 @@
     border-bottom: 1px solid var(--studio-edge);
   }
   .studio-sidebar nav {
-    display: flex;
-    overflow-x: auto;
-    padding: 3px;
-    margin-inline: -3px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
   }
   .studio-sidebar nav a {
-    flex: none;
-    gap: 6px;
-    padding-inline: 9px;
+    gap: 5px;
+    padding-inline: 6px;
+    font-size: 12px;
   }
   .studio-sidebar-footer {
     display: flex;

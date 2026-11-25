@@ -125,6 +125,9 @@ test("Artist Studio loads only on its private route and presents scoped owner da
     page.getByRole("heading", { name: "Campaign performance" }),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("link", { name: "Readiness", exact: true }),
+  ).toBeInViewport();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
