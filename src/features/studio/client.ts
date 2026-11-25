@@ -41,6 +41,37 @@ export const studioClient =
       })
     : undefined;
 
+class StudioRequestError extends Error {}
+
+export async function studioRequest<T>(
+  accessToken: string,
+  request: StudioRequest | string,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!url || !publishableKey) throw new StudioRequestError("unavailable");
+  const timeout = AbortSignal.timeout(10_000);
+  const result = await fetch(
+    `${url.replace(/\/$/, "")}/functions/v1/artist-studio`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: typeof request === "string" ? request : JSON.stringify(request),
+      cache: "no-store",
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    },
+  );
+  const data = await result.json();
+  if (!result.ok)
+    throw new StudioRequestError(
+      typeof data?.code === "string" ? data.code : "unavailable",
+    );
+  return data;
+}
+
 export function useStudioRequest<T>(
   accessToken: string,
   request: StudioRequest,
@@ -61,38 +92,21 @@ export function useStudioRequest<T>(
     const key = { token: accessToken, payload, attempt };
     void (async () => {
       try {
-        const result = await fetch(
-          `${url.replace(/\/$/, "")}/functions/v1/artist-studio`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: publishableKey,
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: payload,
-            cache: "no-store",
-            signal: AbortSignal.any([
-              controller.signal,
-              AbortSignal.timeout(10_000),
-            ]),
-          },
+        const data = await studioRequest<T>(
+          accessToken,
+          payload,
+          controller.signal,
         );
-        const data = await result.json();
-        if (!controller.signal.aborted) {
-          setResponse(
-            result.ok
-              ? { ...key, data }
-              : {
-                  ...key,
-                  error:
-                    typeof data.code === "string" ? data.code : "unavailable",
-                },
-          );
-        }
-      } catch {
+        if (!controller.signal.aborted) setResponse({ ...key, data });
+      } catch (error) {
         if (!controller.signal.aborted)
-          setResponse({ ...key, error: "unavailable" });
+          setResponse({
+            ...key,
+            error:
+              error instanceof StudioRequestError
+                ? error.message
+                : "unavailable",
+          });
       }
     })();
     return () => controller.abort();

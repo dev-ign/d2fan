@@ -30,7 +30,7 @@ export const releases: MusicRelease[] = [
     distributionStatus: "approved",
     upc: "708208533336",
     catalogNumber: "CAT2529872",
-    campaignId: "sayyouluvme_2026",
+    campaignId: catalog.releaseCampaigns.sayyouluvme,
     preserveDisplayCase: true,
     coverArt: "/assets/sayyouloveme-cover2.jpg",
     previewUrl: "/api/sayyouluvme-preview",

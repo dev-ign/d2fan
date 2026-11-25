@@ -4,6 +4,7 @@ import {
   Activity,
   AudioLines,
   CircleDollarSign,
+  Clapperboard,
   ExternalLink,
   LayoutDashboard,
   Link2,
@@ -29,6 +30,7 @@ import {
   useStudioRequest,
 } from "./client";
 import { StudioAuthCard, StudioMfa, StudioSignIn } from "./StudioAuth";
+import { StudioContent } from "./StudioContent";
 import { StudioOwnerSetup } from "./StudioOwnerSetup";
 import {
   Campaigns,
@@ -43,6 +45,7 @@ import "./studio.css";
 
 const navigation = [
   { path: "/", label: "Overview", Icon: LayoutDashboard },
+  { path: "/content", label: "Content", Icon: Clapperboard },
   { path: "/fans", label: "Fans", Icon: Users },
   { path: "/releases", label: "Releases", Icon: Music2 },
   { path: "/campaigns", label: "Campaigns", Icon: Link2 },
@@ -112,6 +115,10 @@ function StudioWorkspace({
                   <StudioLoad error={overview.error} retry={overview.retry} />
                 )
               }
+            />
+            <Route
+              path="content"
+              element={<StudioContent accessToken={accessToken} />}
             />
             <Route path="fans" element={<Fans accessToken={accessToken} />} />
             <Route

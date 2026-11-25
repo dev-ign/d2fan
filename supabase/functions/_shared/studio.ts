@@ -1,5 +1,6 @@
 import { catalog, db } from "./platform.ts";
 import { studioPageSize, type StudioReadiness } from "../../shared/studio.ts";
+import { studioContent } from "./studio-content.ts";
 import { uuid } from "../../shared/validation.ts";
 
 export async function artistStudio(request: Request): Promise<Response> {
@@ -47,10 +48,23 @@ export async function artistStudio(request: Request): Promise<Response> {
       return fail(401, "unauthenticated");
     if (token.claims.aal !== "aal2") return fail(403, "mfa_required");
 
-    const body: unknown = await request.json().catch(() => null);
+    const raw = await request.text();
+    if (raw.length > 16_000) return fail(400, "invalid_request");
+    let body: unknown;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return fail(400, "invalid_request");
+    }
     if (!body || typeof body !== "object" || Array.isArray(body))
       return fail(400, "invalid_request");
     const input = body as Record<string, unknown>;
+    if (
+      input.view === "content" ||
+      input.view === "content_save" ||
+      input.view === "content_acquisition"
+    )
+      return await studioContent(input, client, headers);
     if (input.view === "session") {
       const readiness: StudioReadiness = {
         supportEnabled: Deno.env.get("SUPPORT_ENABLED") === "true",
