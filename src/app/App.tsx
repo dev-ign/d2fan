@@ -1,6 +1,6 @@
 import { LocaleProvider } from "./LocaleProvider";
 import { useLocale } from "../hooks/useLocale";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
 import {
   BrowserRouter,
   Link,
@@ -206,7 +206,16 @@ function AppShell() {
   );
 }
 
+const Studio = lazy(() => import("../features/studio/Studio"));
+
 export default function App() {
+  if (/^\/studio(?:\/|$)/.test(window.location.pathname)) {
+    return (
+      <Suspense fallback={<p role="status">Opening Artist Studio…</p>}>
+        <Studio />
+      </Suspense>
+    );
+  }
   return (
     <LocaleProvider>
       <BrowserRouter>

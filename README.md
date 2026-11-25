@@ -85,6 +85,14 @@ Supabase remains authoritative for verified marketing consent. The current Resen
 
 The first future marketing email can be a short bilingual “Welcome to La Cultura” from Jona, linking to Shorty and the catalog with a visible unsubscribe action. Review content, reconcile provider opt-outs, confirm the mailing address, and obtain separate approval before scheduling or sending. [Resend Broadcasts](https://resend.com/features/broadcasts) · [Resend mailing requirements](https://resend.com/legal/acceptable-use)
 
+## Artist Studio
+
+Open `/studio` with the isolated environment's `VITE_STUDIO_SUPABASE_URL` and `VITE_STUDIO_SUPABASE_PUBLISHABLE_KEY`. Studio loads in a separate chunk and uses its own browser session. Provision the owner in Supabase Auth, confirm the account email, and set `ARTIST_STUDIO_OWNER_ID` to that Auth user’s UUID on the Edge runtime. Set `ARTIST_STUDIO_ORIGINS` to the exact allowed localhost or protected preview origin. Enable TOTP enrollment and verification in the isolated Auth settings. The owner signs in with a password and enrolls or verifies an authenticator in Studio. Keep the privileged Supabase key on the Edge runtime.
+
+Apply the reviewed migrations and deploy only `artist-studio` to the isolated project. Every request revalidates the user, owner UUID and `aal2` before reading. The report and directory RPCs are service-role only. The [SQL Editor report](supabase/ops/fan_acquisition_report.sql) uses the same reporting function after the migration.
+
+For an empty disposable database, run [the synthetic seed](supabase/tests/artist_studio_seed.sql) in the same `psql` session as `SET app.artist_studio_synthetic = 'on'`. Use `VITE_STUDIO_SYNTHETIC_DATA=true` to label the preview. Keep the local or preview Support, Vault, requested email, marketing, and test-send settings off, and omit Stripe, Resend and Meta credentials. Keep production as a separately reviewed activation.
+
 ## Accepted release and production configuration
 
 - First Git-based production release: Vercel project `d2fan-stage-a`, deployment `dpl_H3J7UBFonMMjRnJvtTi546SLeewo` at commit `a045c370036d259af4c5d9351af81cd97046c7d4`. The existing project is connected to `dev-ign/d2fan`, with `main` as the production branch. Automatic production domain assignment is enabled and gated by the required GitHub `verify` check. Previous accepted deployment `dpl_Dsvm8adoEZeAsZs3iVfCnoDU4sLc` is retained as the first-release D2C rollback target.

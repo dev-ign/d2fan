@@ -18,6 +18,8 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: "http://127.0.0.1:54321",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
+      VITE_STUDIO_SUPABASE_URL: "http://127.0.0.1:4173",
+      VITE_STUDIO_SUPABASE_PUBLISHABLE_KEY: "test-studio-publishable-key",
       // Preserve the existing Stage B regressions; Stage A checks opt out.
       VITE_COMMERCE_ENABLED: process.env.VITE_COMMERCE_ENABLED ?? "true",
       VITE_SUPPORT_ENABLED:
