@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.revoke-measurement]
 verify_jwt = false
+
+[functions.artist-studio]
+verify_jwt = false
