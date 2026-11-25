@@ -27,6 +27,7 @@
     "@fontsource/instrument-serif": "latest",
     "@fontsource/sofia-sans-extra-condensed": "latest",
     "@gsap/react": "latest",
+    "@supabase/supabase-js": "2.118.0",
     "@tailwindcss/vite": "latest",
     "gsap": "latest",
     "lucide-react": "latest",

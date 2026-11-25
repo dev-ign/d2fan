@@ -613,7 +613,11 @@ for (const role of ["anon", "authenticated", "service_role"]) {
   assert.equal(rows[0].allowed, role === "service_role");
 }
 const packRequest = crypto.randomUUID();
-const touches = { release: "sayyouluvme", utm_campaign: "sayyouluvme_2026" };
+const touches = {
+  release: "sayyouluvme",
+  utm_campaign: "sayyouluvme_2026",
+  utm_source: "instagram",
+};
 const packCapture = (id, fingerprint = "wallpaper-test") =>
   db.query("select capture_fan_with_reward($1,$2,$3,$4,$5,$6,$7,$8,$9) as id", [
     artist,
@@ -668,6 +672,57 @@ assert.equal(
 );
 console.log(
   "PASS: La Cultura reward-only capture, scoped attribution, replay, legacy conflict and grants.",
+);
+for (const signature of [
+  "public.artist_studio_report(text,text)",
+  "public.artist_studio_fans(text,text,integer,integer)",
+]) {
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    const result = await db.query(
+      "select has_function_privilege($1,$2,'execute') as allowed",
+      [role, signature],
+    );
+    assert.equal(result.rows[0].allowed, role === "service_role");
+  }
+}
+const studioReport = (
+  await db.query("select artist_studio_report($1,$2) as report", [
+    artist,
+    "sayyouluvme_2026",
+  ])
+).rows[0].report;
+assert.deepEqual(studioReport.campaign_totals, {
+  requests: 1,
+  contacts: 1,
+  contacts_with_confirmed_request: 0,
+});
+assert.deepEqual(studioReport.live_revenue_by_currency, []);
+assert.equal(studioReport.reward_requests_30_days, 1);
+const directory = async (artistId, search, offset = 0) =>
+  (
+    await db.query("select artist_studio_fans($1,$2,25,$3) as fans", [
+      artistId,
+      search,
+      offset,
+    ])
+  ).rows[0].fans;
+const searchResult = await directory(artist, "PACK@EXAMPLE.COM");
+assert.equal(searchResult.total, 1);
+assert.equal(searchResult.items[0].consent, "none");
+assert.equal(searchResult.items[0].acquisition_source, "instagram");
+assert.equal(searchResult.items[0].first_release, "sayyouluvme");
+assert.equal(searchResult.items[0].recent_release, "sayyouluvme");
+assert.deepEqual(await directory(artist, "PACK@EXAMPLE.COM", 25), {
+  total: 1,
+  items: [],
+});
+assert.deepEqual(await directory("other-artist", "pack"), {
+  total: 0,
+  items: [],
+});
+assert.equal((await directory(artist, "%")).total, 0);
+console.log(
+  "PASS: Studio aggregate and directory scoping, service-only grants, search and pagination.",
 );
 await db.close();
 const emailDb = new PGlite();
