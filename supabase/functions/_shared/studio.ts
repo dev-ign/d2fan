@@ -1,5 +1,7 @@
 import { catalog, db } from "./platform.ts";
 import { studioPageSize, type StudioReadiness } from "../../shared/studio.ts";
+import { studioCreative } from "./studio-creative.ts";
+import { studioInstagram } from "./studio-instagram.ts";
 import { studioContent } from "./studio-content.ts";
 import { uuid } from "../../shared/validation.ts";
 
@@ -65,6 +67,18 @@ export async function artistStudio(request: Request): Promise<Response> {
       input.view === "content_acquisition"
     )
       return await studioContent(input, client, headers);
+    if (input.view === "creative_status" || input.view === "creative_generate")
+      return await studioCreative(input, client, headers);
+    if (typeof input.view === "string" && input.view.startsWith("instagram_")) {
+      if (!uuid(token.claims.session_id)) return fail(403, "session_required");
+      return await studioInstagram(
+        input,
+        client,
+        headers,
+        token.claims.session_id,
+        origin,
+      );
+    }
     if (input.view === "session") {
       const readiness: StudioReadiness = {
         supportEnabled: Deno.env.get("SUPPORT_ENABLED") === "true",

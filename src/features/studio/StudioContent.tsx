@@ -22,6 +22,7 @@ import { releases } from "../../data/content";
 import { featuredRelease, useStudioRequest } from "./client";
 import { Metric, StudioHeading, StudioLoad } from "./StudioViews";
 import { ContentEditor, type EditorRecord } from "./ContentEditor";
+import { ContentSocial, type InstagramCallback } from "./ContentSocial";
 import { contentIdeas, ideaCopy } from "./contentIdeas";
 import "./studio-content.css";
 
@@ -85,7 +86,21 @@ function PlacementCard({
   );
 }
 
-export function StudioContent({ accessToken }: { accessToken: string }) {
+export function StudioContent({
+  accessToken,
+  callback,
+  clearCallback,
+}: {
+  accessToken: string;
+  callback?: InstagramCallback;
+  clearCallback: () => void;
+}) {
+  const [area, setArea] = useState<
+    "planner" | "published" | "creative" | "accounts"
+  >(callback ? "accounts" : "planner");
+  const [ideaRelease, setIdeaRelease] = useState(featuredRelease.slug);
+  const selectedRelease =
+    releases.find((release) => release.slug === ideaRelease) ?? featuredRelease;
   const today = easternDay();
   const currentWeek = weekStart(today);
   const [week, setWeek] = useState(currentWeek);
@@ -133,10 +148,12 @@ export function StudioContent({ accessToken }: { accessToken: string }) {
   function startIdea(idea: (typeof contentIdeas)[number]) {
     setEditor(
       newPost({
-        release_slug: featuredRelease.slug,
-        title: `${featuredRelease.title} · ${idea.title}`,
+        release_slug: selectedRelease.slug,
+        title: `${selectedRelease.title} · ${idea.title}`,
+        status: "draft",
+        format: "format" in idea ? idea.format : "ig_reel",
         pillar: idea.pillar,
-        ...ideaCopy(idea, "es", featuredRelease.title),
+        ...ideaCopy(idea, "es", selectedRelease.title),
       }),
     );
   }
@@ -151,6 +168,113 @@ export function StudioContent({ accessToken }: { accessToken: string }) {
       />
     );
   const queue = data?.queue;
+  const navigation = (
+    <div
+      className="content-switch content-section-nav"
+      role="group"
+      aria-label="Content workspace"
+    >
+      {(["planner", "published", "creative", "accounts"] as const).map(
+        (item) => (
+          <button
+            key={item}
+            className="studio-button"
+            aria-pressed={area === item}
+            onClick={() => setArea(item)}
+          >
+            {
+              {
+                planner: "Planner",
+                published: "Published",
+                creative: "Creative Assistant",
+                accounts: "Accounts",
+              }[item]
+            }
+          </button>
+        ),
+      )}
+    </div>
+  );
+  if (area !== "planner")
+    return (
+      <div className="content-workspace">
+        <StudioHeading title="Content">
+          Prepare copy and connect it to your releases.
+        </StudioHeading>
+        {navigation}
+        {area === "creative" ? (
+          <section
+            className="studio-panel"
+            id="content-ideas"
+            aria-labelledby="content-idea-title"
+          >
+            <div className="studio-panel-head">
+              <div>
+                <h2 id="content-idea-title">Content ideas</h2>
+                <p>
+                  Choose a release and open an editable draft from a
+                  recommendation.
+                </p>
+              </div>
+              <ClipboardList size={20} aria-hidden="true" />
+            </div>
+            <label className="content-filter">
+              Release for content ideas
+              <select
+                aria-label="Release for content ideas"
+                value={ideaRelease}
+                onChange={(event) => setIdeaRelease(event.target.value)}
+              >
+                {releases.map(({ slug, title }) => (
+                  <option key={slug} value={slug}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {view === "week" &&
+              data &&
+              !data.has_more &&
+              selectedRelease.releaseDate >= today &&
+              selectedRelease.releaseDate >= week &&
+              selectedRelease.releaseDate < daysAfter(week, 7) &&
+              !data.items.some(
+                (item) =>
+                  item.release_slug === ideaRelease &&
+                  item.format === "ig_story",
+              ) && (
+                <p className="studio-note">
+                  This release lands in the selected week and has no planned
+                  Instagram Story.
+                </p>
+              )}
+            <div className="content-ideas">
+              {contentIdeas.map((idea) => (
+                <button
+                  className="content-idea"
+                  key={idea.title}
+                  onClick={() => startIdea(idea)}
+                >
+                  <strong>{idea.title}</strong>
+                  <span>{idea.direction}</span>
+                  <span className="content-idea-action">
+                    Use idea <ArrowRight size={14} aria-hidden="true" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <ContentSocial
+            accessToken={accessToken}
+            area={area}
+            callback={callback}
+            clearCallback={clearCallback}
+            edit={openItem}
+          />
+        )}
+      </div>
+    );
 
   return (
     <div className="content-workspace">
@@ -166,6 +290,8 @@ export function StudioContent({ accessToken }: { accessToken: string }) {
           <Plus size={17} aria-hidden="true" /> New content
         </button>
       </div>
+
+      {navigation}
 
       {queue && (
         <section className="studio-metrics" aria-label="Content queue">
@@ -225,9 +351,12 @@ export function StudioContent({ accessToken }: { accessToken: string }) {
               Open queue <ArrowRight size={15} aria-hidden="true" />
             </button>
           ) : (
-            <a className="studio-text-link" href="#content-ideas">
+            <button
+              className="studio-text-link"
+              onClick={() => setArea("creative")}
+            >
               Find an idea <ArrowRight size={15} aria-hidden="true" />
-            </a>
+            </button>
           )}
         </section>
       )}
@@ -348,40 +477,6 @@ export function StudioContent({ accessToken }: { accessToken: string }) {
           </div>
         )}
       </section>
-
-      <section
-        className="studio-panel"
-        id="content-ideas"
-        aria-labelledby="content-idea-title"
-      >
-        <div className="studio-panel-head">
-          <div>
-            <h2 id="content-idea-title">Content ideas</h2>
-            <p>
-              Start with {featuredRelease.title}, or swap in another song in the
-              editor.
-            </p>
-          </div>
-          <ClipboardList size={20} aria-hidden="true" />
-        </div>
-        <div className="content-ideas">
-          {contentIdeas.map((idea) => (
-            <button
-              className="content-idea"
-              key={idea.title}
-              onClick={() => startIdea(idea)}
-            >
-              <strong>{idea.title}</strong>
-              <span>{idea.direction}</span>
-              <span className="content-idea-action">
-                Use idea <ArrowRight size={14} aria-hidden="true" />
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <SocialReadiness />
     </div>
   );
 }
@@ -528,42 +623,5 @@ function WeekPlanner({
         </div>
       )}
     </>
-  );
-}
-
-function SocialReadiness() {
-  return (
-    <section className="studio-panel" aria-labelledby="content-social-title">
-      <div className="studio-panel-head">
-        <div>
-          <h2 id="content-social-title">Social accounts</h2>
-          <p>Publish in the native apps, then record the post here.</p>
-        </div>
-      </div>
-      <ul className="studio-checks">
-        <li>
-          <div>
-            <strong>Instagram</strong>
-            <p>
-              Confirm a professional account and complete Meta app setup to
-              enable authorized reads.
-            </p>
-          </div>
-          <span className="studio-chip studio-consent-pending">
-            Setup required
-          </span>
-        </li>
-        <li>
-          <div>
-            <strong>TikTok</strong>
-            <p>
-              TikTok Direct Post requires an eligible public-facing use case and
-              an app audit.
-            </p>
-          </div>
-          <span className="studio-chip">Manual publishing</span>
-        </li>
-      </ul>
-    </section>
   );
 }

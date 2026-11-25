@@ -843,6 +843,45 @@ assert.equal(
 console.log(
   "PASS: Studio content persistence, publication integrity, stale writes, private grants and exact campaign attribution.",
 );
+for (const role of ["anon", "authenticated"]) {
+  await db.exec(`set role ${role}`);
+  await assert.rejects(db.query("select * from studio_instagram_connections"), {
+    code: "42501",
+  });
+  await assert.rejects(
+    db.query("select studio_reserve_creative_generation('jona-ferreira')"),
+    { code: "42501" },
+  );
+  await db.exec("reset role");
+}
+await db.query(
+  "insert into studio_creative_usage values ($1, date_trunc('month', now() at time zone 'UTC')::date, 99)",
+  [artist],
+);
+const budget = () =>
+  db.query("select studio_reserve_creative_generation($1) as used", [artist]);
+assert.equal((await budget()).rows[0].used, 100);
+assert.equal((await budget()).rows[0].used, null);
+await db.query(
+  "update studio_content_placements set instagram_media_id='fixture' where id=$1",
+  [placement],
+);
+await db.query(
+  "update studio_content_placements set post_url='https://www.instagram.com/stories/artist/9999/' where id=$1",
+  [placement],
+);
+assert.equal(
+  (
+    await db.query(
+      "select instagram_media_id from studio_content_placements where id=$1",
+      [placement],
+    )
+  ).rows[0].instagram_media_id,
+  null,
+);
+console.log(
+  "PASS: Studio account grants, capped AI reservation, and cleared association on changed permalink.",
+);
 await db.close();
 const emailDb = new PGlite();
 await emailDb.exec(
