@@ -613,7 +613,11 @@ for (const role of ["anon", "authenticated", "service_role"]) {
   assert.equal(rows[0].allowed, role === "service_role");
 }
 const packRequest = crypto.randomUUID();
-const touches = { release: "sayyouluvme", utm_campaign: "sayyouluvme_2026" };
+const touches = {
+  release: "sayyouluvme",
+  utm_campaign: "sayyouluvme_2026",
+  utm_source: "instagram",
+};
 const packCapture = (id, fingerprint = "wallpaper-test") =>
   db.query("select capture_fan_with_reward($1,$2,$3,$4,$5,$6,$7,$8,$9) as id", [
     artist,
@@ -693,6 +697,7 @@ assert.deepEqual(studioReport.campaign_totals, {
   contacts_with_confirmed_request: 0,
 });
 assert.deepEqual(studioReport.live_revenue_by_currency, []);
+assert.equal(studioReport.reward_requests_30_days, 1);
 const directory = async (artistId, search, offset = 0) =>
   (
     await db.query("select artist_studio_fans($1,$2,25,$3) as fans", [
@@ -704,6 +709,9 @@ const directory = async (artistId, search, offset = 0) =>
 const searchResult = await directory(artist, "PACK@EXAMPLE.COM");
 assert.equal(searchResult.total, 1);
 assert.equal(searchResult.items[0].consent, "none");
+assert.equal(searchResult.items[0].acquisition_source, "instagram");
+assert.equal(searchResult.items[0].first_release, "sayyouluvme");
+assert.equal(searchResult.items[0].recent_release, "sayyouluvme");
 assert.deepEqual(await directory(artist, "PACK@EXAMPLE.COM", 25), {
   total: 1,
   items: [],

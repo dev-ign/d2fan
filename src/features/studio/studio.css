@@ -434,6 +434,10 @@
 .studio-checks p {
   margin-top: 3px;
 }
+.studio-destination {
+  color: var(--studio-accent);
+  margin-right: 10px;
+}
 .studio-link-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));

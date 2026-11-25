@@ -6,6 +6,25 @@ import { artist, releases } from "../../data/content";
 const url = import.meta.env.VITE_STUDIO_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_STUDIO_SUPABASE_PUBLISHABLE_KEY;
 
+export interface OwnerLink {
+  type: "invite" | "recovery";
+  hash: string;
+}
+
+export function readOwnerLink(): OwnerLink | undefined {
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const invite = fragment.get("owner_invite");
+  const recovery = fragment.get("owner_recovery");
+  const hash = invite ?? recovery;
+  if (
+    !hash ||
+    (invite !== null && recovery !== null) ||
+    !/^[\w-]{20,256}$/.test(hash)
+  )
+    return;
+  return { type: invite ? "invite" : "recovery", hash };
+}
+
 export const featuredRelease =
   releases.find(({ id }) => id === artist.featuredReleaseId) ?? releases[0];
 export const defaultCampaign =

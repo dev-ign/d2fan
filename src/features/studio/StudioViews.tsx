@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { artist, releases } from "../../data/content";
+import { catalog } from "../../config/runtime";
+import { getStreamingLinks } from "../../config/streaming";
+import type { MusicRelease } from "../../domain/types";
 import { campaignLink } from "../../data/campaignLink";
 import {
   getReleaseUrl,
@@ -136,7 +139,7 @@ export function Overview({ report }: { report: StudioReport }) {
               ? money(gross[0].gross_minor, gross[0].currency)
               : gross.length
                 ? "By currency"
-                : "—"
+                : money(0, catalog.currency)
           }
           detail={
             gross.length
@@ -203,6 +206,14 @@ export function Overview({ report }: { report: StudioReport }) {
           <div>
             <h3>{featuredRelease.title}</h3>
             <p>{featuredRelease.artistCredit ?? artist.displayName}</p>
+            <p>
+              {int.format(report.campaign_totals.requests)} campaign requests
+              from {int.format(report.campaign_totals.contacts)} contacts
+            </p>
+            <p>
+              {int.format(report.reward_requests_30_days)} La Cultura requests
+              across all campaigns in the last 30 days
+            </p>
           </div>
           <Link className="studio-button" to="/campaigns">
             View campaign <ArrowUpRight size={16} />
@@ -289,6 +300,9 @@ export function Fans({ accessToken }: { accessToken: string }) {
                       <th scope="col">Email</th>
                       <th scope="col">Consent</th>
                       <th scope="col">Language</th>
+                      <th scope="col">Acquisition source</th>
+                      <th scope="col">First release</th>
+                      <th scope="col">Recent release</th>
                       <th scope="col">Joined</th>
                       <th scope="col">Last updated</th>
                     </tr>
@@ -305,6 +319,17 @@ export function Fans({ accessToken }: { accessToken: string }) {
                           </span>
                         </td>
                         <td>{fan.language === "es" ? "Spanish" : "English"}</td>
+                        <td>{fan.acquisition_source ?? "Unavailable"}</td>
+                        <td>
+                          {releases.find(
+                            ({ slug }) => slug === fan.first_release,
+                          )?.title ?? "Unavailable"}
+                        </td>
+                        <td>
+                          {releases.find(
+                            ({ slug }) => slug === fan.recent_release,
+                          )?.title ?? "Unavailable"}
+                        </td>
                         <td>{day(fan.created_at)}</td>
                         <td>{day(fan.updated_at)}</td>
                       </tr>
@@ -345,6 +370,67 @@ export function Fans({ accessToken }: { accessToken: string }) {
   );
 }
 
+function GatedPreviewStatus({ url }: { url: string }) {
+  const [available, setAvailable] = useState<boolean>();
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(url, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
+    })
+      .then((response) => {
+        if (!controller.signal.aborted)
+          setAvailable(
+            response.ok &&
+              response.headers.get("Content-Type")?.startsWith("audio/") ===
+                true,
+          );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailable(false);
+      });
+    return () => controller.abort();
+  }, [url]);
+  return (
+    <>
+      {available === undefined
+        ? "Checking audio preview…"
+        : available
+          ? "Audio preview available"
+          : "Audio preview unavailable"}
+    </>
+  );
+}
+
+function ReleaseAvailability({ release }: { release: MusicRelease }) {
+  const destinations = getStreamingLinks(release);
+  return (
+    <>
+      <p>
+        {release.publicationStatus === "upcoming" ? (
+          "Audio embargoed"
+        ) : release.previewUrl?.startsWith("/api/") ? (
+          <GatedPreviewStatus url={release.previewUrl} />
+        ) : release.previewUrl ? (
+          "Audio preview listed"
+        ) : (
+          "Audio preview unavailable"
+        )}
+      </p>
+      <p>
+        {destinations.length
+          ? destinations.map(({ href, name }) => (
+              <a className="studio-destination" key={href} href={href}>
+                {name}
+              </a>
+            ))
+          : "Streaming destinations unavailable"}
+      </p>
+    </>
+  );
+}
+
 export function Releases({ asOf }: { asOf?: string }) {
   return (
     <>
@@ -373,6 +459,7 @@ export function Releases({ asOf }: { asOf?: string }) {
                     {release.artistCredit ?? artist.displayName} ·{" "}
                     {day(release.releaseDate)}
                   </p>
+                  <ReleaseAvailability release={release} />
                 </div>
                 <span className="studio-chip">
                   {release.publicationStatus === "upcoming"
@@ -626,57 +713,65 @@ export function Campaigns({ accessToken }: { accessToken: string }) {
 }
 
 export function Revenue({ report }: { report: StudioReport }) {
+  const revenue = report.live_revenue_by_currency.length
+    ? report.live_revenue_by_currency
+    : [
+        {
+          currency: catalog.currency,
+          verified_payments: 0,
+          linked_paying_fans: 0,
+          guest_payments: 0,
+          gross_minor: 0,
+          full_refunds_minor: 0,
+          payments_with_unknown_refund_amount: 0,
+          net_after_refunds_minor: 0,
+        },
+      ];
   return (
     <>
       <StudioHeading title="Verified revenue">
         Fulfilled live payments in the last 30 Eastern calendar days.
       </StudioHeading>
-      {report.live_revenue_by_currency.length ? (
-        report.live_revenue_by_currency.map((row) => (
-          <section className="studio-panel" key={row.currency}>
-            <div className="studio-panel-head">
-              <div>
-                <h2>{row.currency.toUpperCase()}</h2>
-                <p>
-                  {int.format(row.verified_payments)} verified payments ·{" "}
-                  {int.format(row.guest_payments)} guest payments ·{" "}
-                  {int.format(row.linked_paying_fans)} linked paying fans
-                </p>
-              </div>
-              <ArrowDownRight size={20} />
+      {revenue.map((row) => (
+        <section className="studio-panel" key={row.currency}>
+          <div className="studio-panel-head">
+            <div>
+              <h2>{row.currency.toUpperCase()}</h2>
+              <p>
+                {int.format(row.verified_payments)} verified payments ·{" "}
+                {int.format(row.guest_payments)} guest payments ·{" "}
+                {int.format(row.linked_paying_fans)} linked paying fans
+              </p>
             </div>
-            <div className="studio-metrics studio-metrics-three">
-              <Metric
-                label="Gross payments"
-                value={money(row.gross_minor, row.currency)}
-                detail="Verified ledger"
-              />
-              <Metric
-                label="Full refunds"
-                value={money(row.full_refunds_minor, row.currency)}
-                detail="Recorded full-refund amounts"
-              />
-              <Metric
-                label="Net after refunds"
-                value={
-                  row.net_after_refunds_minor === null
-                    ? "Unavailable"
-                    : money(row.net_after_refunds_minor, row.currency)
-                }
-                detail={
-                  row.payments_with_unknown_refund_amount
-                    ? "Partial-refund amounts are missing"
-                    : "Before processing fees"
-                }
-              />
-            </div>
-          </section>
-        ))
-      ) : (
-        <p className="studio-panel studio-empty">
-          No verified live payments in this period.
-        </p>
-      )}
+            <ArrowDownRight size={20} />
+          </div>
+          <div className="studio-metrics studio-metrics-three">
+            <Metric
+              label="Gross payments"
+              value={money(row.gross_minor, row.currency)}
+              detail="Verified ledger"
+            />
+            <Metric
+              label="Full refunds"
+              value={money(row.full_refunds_minor, row.currency)}
+              detail="Recorded full-refund amounts"
+            />
+            <Metric
+              label="Net after refunds"
+              value={
+                row.net_after_refunds_minor === null
+                  ? "Unavailable"
+                  : money(row.net_after_refunds_minor, row.currency)
+              }
+              detail={
+                row.payments_with_unknown_refund_amount
+                  ? "Partial-refund amounts are missing"
+                  : "Before processing fees"
+              }
+            />
+          </div>
+        </section>
+      ))}
       <p className="studio-note">
         Processing fees, payouts, distinct guests, and campaign-level revenue
         require additional provider evidence.

@@ -91,6 +91,8 @@ Open `/studio` with the isolated environment's `VITE_STUDIO_SUPABASE_URL` and `V
 
 Apply the reviewed migrations and deploy only `artist-studio` to the isolated project. Every request revalidates the user, owner UUID and `aal2` before reading. The report and directory RPCs are service-role only. The [SQL Editor report](supabase/ops/fan_acquisition_report.sql) uses the same reporting function after the migration.
 
+For permanent owner setup, use the Supabase Auth Admin `generateLink` invite flow with public and anonymous signup closed. The operator hands the single-use hash to the verified owner through a private channel in `/studio#owner_invite=<hash>`. Studio clears the fragment, verifies the link and owner, and requires TOTP before the owner chooses a password. For a forgotten password, use the same process with a `recovery` link and `#owner_recovery=<hash>`. For a lost authenticator, an authorized operator must first verify the owner independently, close Studio access during recovery, revoke sessions and remove the specific lost factor. Reopen access only after the owner enrolls a new authenticator and passes the production login check.
+
 For an empty disposable database, run [the synthetic seed](supabase/tests/artist_studio_seed.sql) in the same `psql` session as `SET app.artist_studio_synthetic = 'on'`. Use `VITE_STUDIO_SYNTHETIC_DATA=true` to label the preview. Keep the local or preview Support, Vault, requested email, marketing, and test-send settings off, and omit Stripe, Resend and Meta credentials. Keep production as a separately reviewed activation.
 
 ## Accepted release and production configuration

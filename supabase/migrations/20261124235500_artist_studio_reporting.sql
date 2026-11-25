@@ -114,6 +114,11 @@ select jsonb_build_object(
   'last_30_days', (select jsonb_build_object(
     'new_contacts', sum(new_contacts), 'first_confirmations', sum(first_confirmations)
   ) from daily),
+  'reward_requests_30_days', (select count(*) from public.fan_events e
+    join settings s on e.artist_id = s.artist_id
+    where e.event_type = 'fan_captured'
+      and e.metadata ->> 'rewardId' = 'la_cultura_wallpapers'
+      and e.created_at >= ((s.through_day - 29)::timestamp at time zone 'America/New_York')),
   'operations', (select jsonb_build_object(
     'reward_email_accepted', count(*) filter (where j.sent_at is not null and j.provider_id is not null),
     'reward_email_failed', count(*) filter (where j.status = 'failed')
@@ -134,7 +139,10 @@ create function public.artist_studio_fans(p_artist text, p_search text, p_limit 
 returns jsonb language sql stable security invoker set search_path = '' as $$
   with matched as (
     select f.id, f.email_normalized as email, f.preferred_language as language,
-      f.created_at, f.updated_at, f.email_verified_at
+      f.created_at, f.updated_at, f.email_verified_at,
+      nullif(f.first_touch_utm ->> 'utm_source', '') as acquisition_source,
+      f.first_touch_release_slug as first_release,
+      nullif(f.last_touch_utm ->> 'release', '') as recent_release
     from public.fans f
     where f.artist_id = p_artist
       and (p_search = '' or strpos(f.email_normalized, lower(trim(p_search))) > 0)

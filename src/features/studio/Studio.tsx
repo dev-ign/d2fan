@@ -22,8 +22,14 @@ import type {
   StudioReadiness,
   StudioReport,
 } from "../../../supabase/shared/studio";
-import { defaultCampaign, studioClient, useStudioRequest } from "./client";
+import {
+  defaultCampaign,
+  readOwnerLink,
+  studioClient,
+  useStudioRequest,
+} from "./client";
 import { StudioAuthCard, StudioMfa, StudioSignIn } from "./StudioAuth";
+import { StudioOwnerSetup } from "./StudioOwnerSetup";
 import {
   Campaigns,
   Fans,
@@ -195,7 +201,16 @@ function StudioGate({
 
 function StudioSession({ client }: { client: SupabaseClient }) {
   const [session, setSession] = useState<Session | null>();
-  const [signOutError, setSignOutError] = useState(false);
+  const [ownerLink, setOwnerLink] = useState(readOwnerLink);
+  const [signOutError, setSignOutError] = useState<"local" | "global">();
+  useEffect(() => {
+    if (ownerLink && location.hash)
+      history.replaceState(
+        history.state,
+        "",
+        location.pathname + location.search,
+      );
+  }, [ownerLink]);
   useEffect(() => {
     const {
       data: { subscription },
@@ -203,25 +218,44 @@ function StudioSession({ client }: { client: SupabaseClient }) {
     return () => subscription.unsubscribe();
   }, [client]);
 
-  async function signOut() {
+  async function signOut(scope: "local" | "global" = "local") {
     setSession(undefined);
-    setSignOutError(false);
+    setSignOutError(undefined);
     try {
-      const { error } = await client.auth.signOut({ scope: "local" });
+      const { error } = await client.auth.signOut({ scope });
       if (error) throw error;
       setSession(null);
     } catch {
-      setSignOutError(true);
+      setSignOutError(scope);
     }
   }
 
   if (signOutError)
     return (
       <StudioAuthCard title="Sign out needs another attempt">
-        <button className="studio-button" onClick={() => void signOut()}>
+        <button
+          className="studio-button"
+          onClick={() => void signOut(signOutError)}
+        >
           Retry sign out
         </button>
       </StudioAuthCard>
+    );
+  if (ownerLink)
+    return (
+      <StudioOwnerSetup
+        client={client}
+        session={session}
+        link={ownerLink}
+        cancel={() => {
+          setOwnerLink(undefined);
+          void signOut();
+        }}
+        finish={() => {
+          setOwnerLink(undefined);
+          void signOut("global");
+        }}
+      />
     );
   if (session === undefined)
     return (

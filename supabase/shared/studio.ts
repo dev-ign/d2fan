@@ -7,6 +7,7 @@ export interface StudioReadiness {
 
 export interface StudioReport {
   as_of: string;
+  reward_requests_30_days: number;
   totals: {
     captured_contacts: number;
     confirmed_marketing_subscribers: number;
@@ -55,6 +56,9 @@ export interface StudioFans {
     created_at: string;
     updated_at: string;
     email_verified_at: string | null;
+    acquisition_source: string | null;
+    first_release: string | null;
+    recent_release: string | null;
     consent: "confirmed" | "pending" | "revoked" | "unverified" | "none";
   }[];
 }
