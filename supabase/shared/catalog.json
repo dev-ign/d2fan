@@ -1,6 +1,21 @@
 {
   "artistId": "jona-ferreira",
   "currency": "usd",
+  "releaseCampaigns": {
+    "sayyouluvme": "sayyouluvme_2026",
+    "shorty": "shorty",
+    "accion": "accion",
+    "darte-nota": "darte-nota",
+    "contenta": "contenta",
+    "cafe": "cafe",
+    "caramelo": "caramelo",
+    "viaje-astral": "viaje-astral",
+    "lalo": "lalo",
+    "sunday": "sunday",
+    "fria": "fria",
+    "me-avisas": "me-avisas",
+    "12-uvas": "12-uvas"
+  },
   "support": {
     "presets": [500, 1500, 3000],
     "defaultMinor": 1500,

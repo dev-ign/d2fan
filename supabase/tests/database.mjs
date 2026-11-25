@@ -676,6 +676,9 @@ console.log(
 for (const signature of [
   "public.artist_studio_report(text,text)",
   "public.artist_studio_fans(text,text,integer,integer)",
+  "public.artist_studio_content_save(text,uuid,integer,jsonb)",
+  "public.artist_studio_content_list(text,date,text,integer,integer)",
+  "public.artist_studio_content_acquisition(text,uuid)",
 ]) {
   for (const role of ["anon", "authenticated", "service_role"]) {
     const result = await db.query(
@@ -723,6 +726,122 @@ assert.deepEqual(await directory("other-artist", "pack"), {
 assert.equal((await directory(artist, "%")).total, 0);
 console.log(
   "PASS: Studio aggregate and directory scoping, service-only grants, search and pagination.",
+);
+const placement = "10000000-0000-4000-8000-000000000001";
+const placementFields = {
+  title: "Performance clip",
+  release_slug: "sayyouluvme",
+  campaign_id: "sayyouluvme_2026",
+  pillar: "Performance",
+  language: "es",
+  hook: "Escucha esto",
+  caption: "Una toma",
+  cta: "",
+  format: "ig_story",
+  status: "ready",
+  planned_on: "2026-11-27",
+};
+const saveContent = async (revision, fields) =>
+  (
+    await db.query("select artist_studio_content_save($1,$2,$3,$4) as saved", [
+      artist,
+      placement,
+      revision,
+      fields,
+    ])
+  ).rows[0].saved;
+const listContent = async (artistId, day, filter = "active") =>
+  (
+    await db.query(
+      "select artist_studio_content_list($1,$2,$3,25,0) as result",
+      [artistId, day, filter],
+    )
+  ).rows[0].result;
+const contentAcquisition = async (artistId) =>
+  (
+    await db.query(
+      "select artist_studio_content_acquisition($1,$2) as result",
+      [artistId, placement],
+    )
+  ).rows[0].result;
+
+for (const role of ["anon", "authenticated"]) {
+  await db.exec(`set role ${role}`);
+  await assert.rejects(db.query("select * from public.studio_content_ideas"), {
+    code: "42501",
+  });
+  await assert.rejects(
+    db.query("select * from public.studio_content_placements"),
+    { code: "42501" },
+  );
+  await db.exec("reset role");
+}
+assert.equal(await saveContent(null, placementFields), true);
+assert.equal(await saveContent(null, placementFields), false);
+assert.deepEqual((await listContent(artist, "2026-11-30")).items, []);
+assert.deepEqual((await listContent("other-artist", null)).items, []);
+const weekContent = await listContent(artist, "2026-11-23");
+assert.equal(weekContent.week_count, 1);
+assert.equal(weekContent.items[0].status, "ready");
+assert.equal(weekContent.items[0].published_on, null);
+await assert.rejects(
+  saveContent(1, { ...placementFields, status: "published" }),
+  { code: "23514" },
+);
+const publishedFields = {
+  ...placementFields,
+  status: "published",
+  published_on: "2026-11-27",
+  post_url: "https://www.instagram.com/stories/artist/12345/",
+};
+assert.equal(await saveContent(1, publishedFields), true);
+assert.equal(await saveContent(1, placementFields), false);
+assert.equal(
+  await saveContent(2, { ...publishedFields, format: "tt_video" }),
+  false,
+);
+assert.equal(
+  (await listContent(artist, null, "published")).items[0].revision,
+  2,
+);
+assert.deepEqual(await contentAcquisition(artist), {
+  requests: 0,
+  contacts: 0,
+});
+const exactTouch = {
+  ...touches,
+  utm_source: "instagram",
+  utm_medium: "organic_social",
+  utm_content: "studio_baaaaaaaaaaaeaaaiaaaaaaaaaaaaaab",
+  landing_path: "/music/sayyouluvme",
+};
+for (const last of [
+  exactTouch,
+  exactTouch,
+  { ...exactTouch, utm_source: "tiktok" },
+  touches,
+]) {
+  await db.query(
+    "select capture_fan_with_reward($1,$2,$3,'es',$4,$5,false,'test','la_cultura_wallpapers')",
+    [artist, crypto.randomUUID(), "placement@example.test", exactTouch, last],
+  );
+}
+assert.deepEqual(await contentAcquisition(artist), {
+  requests: 2,
+  contacts: 1,
+});
+assert.equal(await contentAcquisition("other-artist"), null);
+assert.equal(
+  await saveContent(2, { ...publishedFields, status: "archived" }),
+  true,
+);
+assert.deepEqual((await listContent(artist, null)).items, []);
+assert.equal(
+  (await listContent(artist, null, "archived")).items[0].published_on,
+  "2026-11-27",
+);
+console.log(
+  "PASS: Studio content persistence, publication integrity, stale writes, private grants and exact campaign attribution.",
 );
 await db.close();
 const emailDb = new PGlite();

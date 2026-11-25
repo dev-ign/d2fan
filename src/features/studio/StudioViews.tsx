@@ -85,7 +85,7 @@ export function StudioLoad({
   );
 }
 
-function Metric({
+export function Metric({
   label,
   value,
   detail,

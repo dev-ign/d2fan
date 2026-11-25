@@ -1,3 +1,5 @@
+import type { ContentRequest } from "./studio-content.ts";
+
 export interface StudioReadiness {
   supportEnabled: boolean;
   vaultEnabled: boolean;
@@ -66,6 +68,7 @@ export interface StudioFans {
 export type StudioRequest =
   | { view: "session" }
   | { view: "report"; campaign: string }
-  | { view: "fans"; search: string; page: number };
+  | { view: "fans"; search: string; page: number }
+  | ContentRequest;
 
 export const studioPageSize = 25;
