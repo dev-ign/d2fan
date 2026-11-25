@@ -5,6 +5,7 @@ create table public.studio_instagram_connections (
   session_id uuid,
   state_expires timestamptz,
   token_cipher text,
+  token_version uuid not null default gen_random_uuid(),
   connected_at timestamptz,
   token_expires timestamptz,
   refreshed_at timestamptz,

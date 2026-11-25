@@ -271,6 +271,7 @@ export async function studioInstagram(
         state_expires: null,
         session_id: null,
         token_cipher: await seal(long.access_token, key),
+        token_version: crypto.randomUUID(),
         account_id: profile.user_id,
         username: profile.username,
         avatar: imageUrl(profile.profile_picture_url),
@@ -295,7 +296,7 @@ export async function studioInstagram(
 
   const { data: row, error } = await rows()
     .select(
-      "state_expires,token_cipher,account_id,username,avatar,synced_at,connected_at,refreshed_at,token_expires,reauthorize",
+      "state_expires,token_cipher,token_version,account_id,username,avatar,synced_at,connected_at,refreshed_at,token_expires,reauthorize",
     )
     .eq("artist_id", artist)
     .maybeSingle();
@@ -329,10 +330,10 @@ export async function studioInstagram(
     return fail("invalid_request");
   if (status !== "connected" || !row) return fail("instagram_reauthorize", 409);
 
-  let cipher = row.token_cipher;
+  let tokenVersion = row.token_version;
   let token: string;
   try {
-    token = await unseal(cipher, key);
+    token = await unseal(row.token_cipher, key);
     if (
       expires - now.getTime() < 7 * 86_400_000 &&
       now.getTime() - Date.parse(row.refreshed_at ?? row.connected_at) >=
@@ -353,22 +354,23 @@ export async function studioInstagram(
       )
         return fail("instagram_unavailable", 503);
       token = renewed.access_token;
-      const replacement = await seal(token, key);
+      const nextVersion = crypto.randomUUID();
       const result = await rows()
         .update({
-          token_cipher: replacement,
+          token_cipher: await seal(token, key),
+          token_version: nextVersion,
           refreshed_at: now.toISOString(),
           token_expires: new Date(
             now.getTime() + renewed.expires_in * 1000,
           ).toISOString(),
         })
         .eq("artist_id", artist)
-        .eq("token_cipher", cipher)
+        .eq("token_version", tokenVersion)
         .select("artist_id")
         .maybeSingle();
       if (result.error) return fail("instagram_unavailable", 503);
       if (!result.data) return fail("instagram_reauthorize", 409);
-      cipher = replacement;
+      tokenVersion = nextVersion;
     }
     const params = new URLSearchParams({
       fields:
@@ -390,7 +392,7 @@ export async function studioInstagram(
     const active = await rows()
       .update({ synced_at: now.toISOString() })
       .eq("artist_id", artist)
-      .eq("token_cipher", cipher)
+      .eq("token_version", tokenVersion)
       .select("artist_id")
       .maybeSingle();
     if (active.error) return fail("instagram_unavailable", 503);
@@ -448,7 +450,7 @@ export async function studioInstagram(
       await rows()
         .update({ reauthorize: true })
         .eq("artist_id", artist)
-        .eq("token_cipher", cipher);
+        .eq("token_version", tokenVersion);
       return fail("instagram_reauthorize", 409);
     }
     return fail("instagram_unavailable", 503);

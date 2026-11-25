@@ -123,6 +123,10 @@ Deno.test(
             return query;
           },
           eq(key: string, value: unknown) {
+            assert(
+              key !== "token_cipher",
+              "credential material went into a query filter",
+            );
             if (key !== "artist_id")
               predicates.push((row) => row[key] === value);
             return query;
