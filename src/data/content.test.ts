@@ -23,13 +23,14 @@ const destinationPatterns: Record<
   tidal: /^https:\/\/tidal\.com\/track\/\d+$/,
 };
 
-test("SayYouLuvMe is featured with verified metadata and unavailable for listening before activation", () => {
+test("SayYouLuvMe is featured and released with five verified streaming destinations", () => {
   const release = releases[0];
   expect(release).toMatchObject({
     id: artist.featuredReleaseId,
     slug: "sayyouluvme",
     title: "SayYouLuvMe",
     releaseDate: "2026-11-27",
+    publicationStatus: "released",
     publishAt: "2026-11-27T05:00:00Z",
     artistCredit: "Jona Ferreira & SBFaraon",
     coverArt: "/assets/sayyouloveme-cover2.jpg",
@@ -38,31 +39,39 @@ test("SayYouLuvMe is featured with verified metadata and unavailable for listeni
     catalogNumber: "CAT2529872",
     distributionStatus: "approved",
   });
-  expect(["upcoming", "released"]).toContain(release.publicationStatus);
-  if (release.publicationStatus === "upcoming") {
-    expect(release.streamingLinks).toEqual({});
-  }
+  expect(release.streamingLinks).toEqual({
+    spotify: "https://open.spotify.com/track/7yFaxQ0zFhclCMTVmIR01E",
+    appleMusic:
+      "https://music.apple.com/us/album/sayyouluvme/6831360120?i=6831360121",
+    youtube: "https://music.youtube.com/watch?v=YONaesxqFtE",
+    amazonMusic:
+      "https://music.amazon.com/albums/B0HQKWV7QN?trackAsin=B0HQL46W35",
+    tidal: "https://tidal.com/track/576435093",
+  });
   expect(release.previewUrl).toBe("/api/sayyouluvme-preview");
   expect(existsSync("public/assets/preview-sayyouluvme.m4a")).toBe(false);
-  const upcoming = { ...release, publicationStatus: "upcoming" as const };
+  expect(resolveReleasePublication(release)).toBe(release);
+  expect(getReleaseMetadata(release, "es").description).toMatch(
+    /^Escucha SayYouLuvMe/,
+  );
+});
+
+test("scheduled releases hold streaming links until the confirmed publication time", () => {
+  const release = releases[0];
+  const streamingLinks = { spotify: release.streamingLinks.spotify };
+  const upcoming = {
+    ...release,
+    publicationStatus: "upcoming" as const,
+    streamingLinks,
+  };
   const midnightEastern = Date.parse("2026-11-27T05:00:00Z");
   expect(resolveReleasePublication(upcoming)).toBe(upcoming);
   expect(resolveReleasePublication(upcoming, midnightEastern - 1)).toBe(
     upcoming,
   );
+  expect(getStreamingLinks(upcoming)).toEqual([]);
   expect(
-    resolveReleasePublication(upcoming, midnightEastern).publicationStatus,
-  ).toBe("released");
-  const streamingLinks = {
-    spotify: "https://open.spotify.com/track/2x1GqWEEuPrYxcUsyBayhl",
-  };
-  expect(getStreamingLinks({ ...upcoming, streamingLinks })).toEqual([]);
-  expect(
-    getStreamingLinks({
-      ...release,
-      streamingLinks,
-      publicationStatus: "released",
-    }),
+    getStreamingLinks(resolveReleasePublication(upcoming, midnightEastern)),
   ).toMatchObject([{ platform: "spotify", href: streamingLinks.spotify }]);
   expect(getReleaseMetadata(upcoming, "en").description).toContain(
     "November 27, 2026",
@@ -70,10 +79,6 @@ test("SayYouLuvMe is featured with verified metadata and unavailable for listeni
   expect(getReleaseMetadata(upcoming, "es").description).toContain(
     "27 de noviembre de 2026",
   );
-  expect(
-    getReleaseMetadata({ ...release, publicationStatus: "released" }, "es")
-      .description,
-  ).toMatch(/^Escucha SayYouLuvMe/);
 });
 
 test("the SayYouLuvMe function loads as native Node ESM", () => {
@@ -174,7 +179,10 @@ test("the catalog serves unique release-specific HTTPS links across both lookups
       await localContentRepository.getReleaseBySlug(artist.id, release.slug),
     ).toBe(release);
     if (release.publicationStatus === "upcoming") continue;
-    if (release.previewUrl || !release.publicationStatus) {
+    if (
+      !release.previewUrl?.startsWith("/api/") &&
+      (release.previewUrl || !release.publicationStatus)
+    ) {
       expect(release.previewUrl).toBe(`/assets/preview-${release.slug}.m4a`);
       expect(existsSync(`public${release.previewUrl}`)).toBe(true);
     }

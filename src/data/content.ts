@@ -25,7 +25,7 @@ export const releases: MusicRelease[] = [
     title: "SayYouLuvMe",
     artistCredit: "Jona Ferreira & SBFaraon",
     releaseDate: "2026-11-27",
-    publicationStatus: "upcoming",
+    publicationStatus: "released",
     publishAt: "2026-11-27T05:00:00Z",
     distributionStatus: "approved",
     upc: "708208533336",
@@ -34,7 +34,14 @@ export const releases: MusicRelease[] = [
     preserveDisplayCase: true,
     coverArt: "/assets/sayyouloveme-cover2.jpg",
     previewUrl: "/api/sayyouluvme-preview",
-    streamingLinks: {},
+    streamingLinks: {
+      spotify: "https://open.spotify.com/track/7yFaxQ0zFhclCMTVmIR01E",
+      appleMusic: apple("sayyouluvme/6831360120", "6831360121"),
+      youtube: "https://music.youtube.com/watch?v=YONaesxqFtE",
+      amazonMusic:
+        "https://music.amazon.com/albums/B0HQKWV7QN?trackAsin=B0HQL46W35",
+      tidal: "https://tidal.com/track/576435093",
+    },
   },
   {
     id: "shorty",

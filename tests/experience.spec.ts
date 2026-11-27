@@ -155,7 +155,6 @@ test("SayYouLuvMe landing shares the campaign and preserves optional signup cons
   const incoming =
     "utm_source=instagram&utm_medium=organic_social&utm_campaign=sayyouluvme_2026&utm_content=sbfaraon_stories&utm_term=release_week&email=ignored%40example.com";
   const reward = "https://storage.example.com/signed-accion-wallpaper";
-  const single = catalog.find((item) => item.slug === "sayyouluvme")!;
   let capture: unknown;
   await page.route("**/functions/v1/capture-fan", async (request) => {
     capture = request.request().postDataJSON();
@@ -191,12 +190,7 @@ test("SayYouLuvMe landing shares the campaign and preserves optional signup cons
   await expect(page.locator(".release-date time")).toHaveText(
     "November 27, 2026",
   );
-  await expect(page.locator(".release-date")).toContainText(
-    single.publicationStatus === "upcoming" ? "Upcoming single" : "Out now",
-  );
-  if (single.publicationStatus === "upcoming") {
-    await expect(page.locator(".preview-action, .stream-links")).toHaveCount(0);
-  }
+  await expect(page.locator(".release-date")).toContainText("Out now");
   await expect(page).toHaveURL(route);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
@@ -289,52 +283,62 @@ test("SayYouLuvMe landing shares the campaign and preserves optional signup cons
   await expect(page).toHaveURL("/#music");
 });
 
-test("SayYouLuvMe reveals playback at midnight Eastern on the server clock", async ({
+test("SayYouLuvMe is out now with streaming links and a playable preview in both languages", async ({
   page,
 }) => {
-  const midnight = Date.parse("2026-11-27T05:00:00Z");
-  let serverNow = midnight - 1_000;
-  await page.clock.setFixedTime(new Date("2026-12-01T00:00:00Z"));
-  await page.route("**/api/release-clock", (route) =>
-    route.fulfill({ json: { now: serverNow } }),
+  const spotify = "https://open.spotify.com/track/7yFaxQ0zFhclCMTVmIR01E";
+  await page.route("**/api/release-clock", (route) => route.abort());
+  await page.route("**/api/sayyouluvme-preview", (route) =>
+    route.fulfill({
+      path: "public/assets/preview-shorty.m4a",
+      contentType: "audio/mp4",
+    }),
   );
+  await page
+    .context()
+    .route(spotify, (route) => route.fulfill({ body: "Spotify" }));
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#music");
   await expect(
-    page.getByRole("link", { name: "Upcoming release: SayYouLuvMe" }),
-  ).toBeVisible();
-  const catalog = page.locator("#music");
-  const single = catalog.getByRole("button", {
-    name: "SayYouLuvMe",
-    exact: true,
-  });
-  await expect(single).toHaveCount(0);
-  await expect(
-    catalog.getByRole("button", { name: /Play SayYouLuvMe preview/ }),
-  ).toHaveCount(0);
-  await catalog
-    .getByRole("button", { name: "Darte Nota", exact: true })
-    .click();
-  serverNow = midnight;
-
-  await expect(
     page.getByRole("link", { name: "Latest release: SayYouLuvMe" }),
   ).toBeVisible();
-  await expect(single).toBeVisible();
-  await expect(catalog.locator(".release-head h3")).toHaveText("Darte Nota");
-  await single.click();
-  await expect(catalog).toContainText("Out now");
+  const music = page.locator("#music");
+  await expect(music.locator(".release-head h3")).toHaveText("SayYouLuvMe");
+  await expect(music).toContainText("Out now");
   await expect(
-    catalog.getByRole("button", { name: /Play SayYouLuvMe preview/ }),
+    music.getByRole("button", { name: "Play SayYouLuvMe preview" }),
   ).toBeVisible();
-  await catalog.getByRole("link", { name: "Release page" }).click();
+  await music.getByRole("link", { name: "Release page" }).click();
+  await expect(page).toHaveURL("/music/sayyouluvme");
   await expect(page.locator(".release-date")).toContainText("Out now");
-  await expect(page.locator(".preview-action")).toBeVisible();
-  await expect(page.locator(".stream-links")).toHaveCount(0);
+  const englishSpotify = page.getByRole("link", {
+    name: "Listen to SayYouLuvMe on Spotify",
+  });
+  await expect(englishSpotify).toHaveAttribute("href", spotify);
+  await page.getByRole("button", { name: "Play preview", exact: true }).click();
+  await expect(page.locator(".preview-action")).toHaveText("Pause preview");
 
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.locator(".language-trigger").click();
   await page.getByRole("menuitemradio", { name: /ES/ }).click();
   await expect(page.locator(".release-date")).toContainText("Ya disponible");
+  const spanishLinks = page.getByRole("group", {
+    name: "Escucha este lanzamiento",
+  });
+  await expect(spanishLinks.getByRole("link")).toHaveCount(5);
+  const spanishSpotify = spanishLinks.getByRole("link", {
+    name: "Escucha SayYouLuvMe en Spotify",
+  });
+  await expect(spanishSpotify).toHaveCSS("width", "44px");
+  await expect(spanishSpotify).toHaveCSS("height", "44px");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  const [popup] = await Promise.all([
+    page.waitForEvent("popup"),
+    spanishSpotify.click(),
+  ]);
+  await expect(popup).toHaveURL(spotify);
 });
 
 test("the featured catalog and every release page share the same streaming destinations", async ({
@@ -422,6 +426,7 @@ test("the featured catalog and every release page share the same streaming desti
         "href",
         release.streamingLinks[platform]!,
       );
+      await expect(item).toHaveAttribute("target", "_blank");
       await expect(item).toHaveAttribute("rel", "noopener noreferrer");
       await expect
         .poll(() =>

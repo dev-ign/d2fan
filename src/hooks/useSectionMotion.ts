@@ -74,6 +74,9 @@ export function useSectionMotion(ready: boolean | string) {
         },
         scope,
       );
+      // Release entrances are time-based, and refreshing can restore the home scroll position.
+      if (root.matches(".release-page")) return () => mm.revert();
+
       let live = true;
       let frame = 0;
       const refresh = () => {
